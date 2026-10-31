@@ -91,7 +91,7 @@
     /* ---------- 公开接口 ---------- */
 
     render(model) {
-      if (this._dead) return;
+      if (this._dead) return false;
       this.model = model && typeof model === 'object' ? model : {};
       if (this._raf) {
         cancelAnimationFrame(this._raf);
@@ -100,9 +100,10 @@
       // 容器隐藏时只记录 model，不画；重新可见后由 ResizeObserver 触发重绘
       if (!this._syncSize()) {
         this._scheduleSizeRetry();
-        return;
+        return false;
       }
       this._draw();
+      return true;
     }
 
     resize() {

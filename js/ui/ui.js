@@ -55,13 +55,10 @@
         // 极旧内核拿不到 2D 上下文时，用空壳保证其余界面可用
         console.error('chart init failed', err);
         this.chart = {
-          render() {
-            const el = $('chartEmpty');
-            if (el) {
-              el.textContent = '当前设备无法初始化图表：' + (err && err.message ? err.message : err);
-              el.classList.remove('hidden');
-            }
-          },
+          w: 0,
+          h: 0,
+          errorMessage: '当前设备无法初始化图表：' + (err && err.message ? err.message : err),
+          render() { return false; },
           resize() {},
           destroy() {},
         };
@@ -440,17 +437,24 @@
         emptyText: '正在读取行情…',
       };
       let chartOk = true;
+      let chartMsg = '';
       try {
-        this.chart.render(model);
+        chartOk = this.chart.render(model) !== false;
       } catch (err) {
         // 图表绘制失败时不让整个界面跟着挂掉
         chartOk = false;
         console.error('chart render failed', err);
-        const el = $('chartEmpty');
-        el.textContent = '当前设备无法绘制图表：' + (err && err.message ? err.message : err);
-        el.classList.remove('hidden');
+        chartMsg = '当前设备无法绘制图表：' + (err && err.message ? err.message : err);
       }
-      if (chartOk) $('chartEmpty').classList.toggle('hidden', !!(s.bars.length || s.forming));
+      if (!chartOk) {
+        const el = $('chartEmpty');
+        el.textContent = chartMsg || this.chart.errorMessage ||
+          ('图表尺寸异常：画布 ' + (this.chart.w || 0) + '×' + (this.chart.h || 0) +
+           '，窗口 ' + window.innerWidth + '×' + window.innerHeight);
+        el.classList.remove('hidden');
+      } else {
+        $('chartEmpty').classList.toggle('hidden', !!(s.bars.length || s.forming));
+      }
       const count = s.bars.length + (s.forming ? 1 : 0);
       $('chartFootRight').textContent = `${p.display} · ${this.mapTfLabel()} · ${count} 根`;
       $('chartLegend').textContent = g.mode === 'history' || g.mode === 'battle' ? 'ECB 日度参考价 · 盘中为估算' : '合成行情 · 仅供游戏';
