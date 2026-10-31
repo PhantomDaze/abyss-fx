@@ -89,6 +89,34 @@ await shot('03-day');
 await page.click('#setOk');
 await page.waitForTimeout(300);
 
+// 存档导出 / 导入
+const saveIO = await page.evaluate(() => {
+  FX.game.save();
+  const text = FX.SaveIO.build();
+  const obj = FX.SaveIO.parse(text);
+  let rejected = false;
+  try { FX.SaveIO.parse('{}'); } catch (_) { rejected = true; }
+  return { magic: obj.magic, keys: Object.keys(obj.data), size: text.length, rejected };
+});
+log('saveio', saveIO);
+if (saveIO.magic !== 'abyss-fx-save' || !saveIO.keys.length || !saveIO.rejected) {
+  throw new Error('存档导入导出接口异常');
+}
+await page.click('#settingsBtn');
+await page.waitForTimeout(200);
+await page.click('#setExport');
+await page.waitForTimeout(300);
+const exportLen = await page.evaluate(() => {
+  const ta = document.getElementById('saveExportText');
+  return ta ? ta.value.length : 0;
+});
+log('save export modal', exportLen);
+if (!exportLen) throw new Error('导出弹窗没有存档内容');
+await page.click('#modalClose');
+await page.waitForTimeout(200);
+await page.click('#setClose');
+await page.waitForTimeout(200);
+
 // 战役
 await page.click('#modeTabs .mode-tab[data-mode="battle"]');
 await page.waitForTimeout(400);
