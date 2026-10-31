@@ -1,0 +1,605 @@
+/* ==========================================================================
+   深渊汇率 ABYSS FX — 设计令牌
+   旧账本 × 深海交易终端
+   - :root 为白天主题（暖米纸 / 墨色 / 氧化黄铜）
+   - html[data-theme="night"] 覆盖为夜间主题（深海蓝黑 / 磷光绿松石 / 铜线）
+   - html[data-updown="global"] 只交换涨跌语义，不动风险色
+   字体全部使用系统字体栈，不加载任何外部字体。
+   ========================================================================== */
+
+:root {
+  /* ---------- 字体 ---------- */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto,
+    "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
+    "Source Han Sans SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Songti SC", STSong, "Noto Serif CJK SC",
+    "Source Han Serif SC", "SimSun", "PingFang SC", serif;
+  --font-mono: "SF Mono", "Cascadia Code", "Roboto Mono",
+    "JetBrains Mono", "IBM Plex Mono", "Noto Sans Mono", ui-monospace, monospace;
+
+  /* ---------- 字号层级 ---------- */
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 26px;
+  --fs-3xl: 34px;
+  --fs-4xl: 44px;
+  --lh-tight: 1.15;
+  --lh-snug: 1.35;
+  --lh-body: 1.6;
+
+  /* ---------- 间距 ---------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* ---------- 圆角：克制，12–16px 为主 ---------- */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 12px;
+  --r-2xl: 14px;
+  --r-3xl: 16px;
+  --r-pill: 999px;
+
+  /* ---------- 布局 ---------- */
+  --topbar-h: 52px;
+  --account-h: 84px;
+  --rail-left: 240px;
+  --rail-right: 340px;
+  --gap: 16px;
+  --content-max: 1680px;
+  --page-pad: 20px;
+
+  /* ---------- 动效 ---------- */
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 280ms;
+  --dur-4: 520ms;
+  --ease-std: cubic-bezier(.4, 0, .2, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+
+  /* ---------- 层级 ---------- */
+  --z-topbar: 40;
+  --z-account: 35;
+  --z-float: 60;
+  --z-modal: 70;
+  --z-toast: 80;
+}
+
+/* ==========================================================================
+   白天主题
+   ========================================================================== */
+:root,
+html[data-theme="day"] {
+  color-scheme: light;
+
+  /* 底与面板 */
+  --bg: #F1EBDD;
+  --bg-grain: rgba(20, 56, 60, .028);
+  --surface: #FBF8F0;
+  --surface-raised: #FFFDF8;
+  --surface-sunken: #E9E1D1;
+  --surface-hover: #F5EEDF;
+  --surface-active: #EDE4D2;
+
+  /* 文字 */
+  --ink: #19262B;
+  --ink-2: #31454A;
+  /* 为正文级对比度（≥4.5:1）从规范原值略作加深 */
+  --text-muted: #4E5956;
+  --text-faint: #5F675D;
+
+  /* 边框 */
+  --border: #D6CDBB;
+  --border-strong: #B7AC97;
+  --border-soft: #E8E0D1;
+
+  /* 品牌与操作 */
+  --brand: #14383C;
+  --brand-2: #2B5D5C;
+  --brand-contrast: #F7F1E3;
+  --brass: #9C6827;
+  --brass-strong: #6E440F;
+  --brass-soft: #F1E1C3;
+  --action: #14383C;
+  --action-hover: #1E4D50;
+  --action-contrast: #F7F1E3;
+  --accent: #8E5C1E;
+  --accent-hover: #764A15;
+  --accent-contrast: #FFF9EE;
+  --link: #6E440F;
+  --focus: #B57F35;
+  --focus-ring: rgba(181, 127, 53, .34);
+
+  /* 涨跌基础色 */
+  --red-500: #B83A2D;
+  --red-600: #932A20;
+  --red-soft: #F6E2DD;
+  --on-red: #FFF8F5;
+  --green-500: #177760;
+  --green-600: #0F5C49;
+  --green-soft: #DFEDE7;
+  --on-green: #F4FBF8;
+
+  /* 买卖报价：刻意不用红绿，避免与盈亏混淆 */
+  --bid: #2E6680;
+  --ask: #8A5A1A;
+  --spread: #6F5A3C;
+  --spread-soft: #EFE7D6;
+  --spread-wide: var(--risk-watch);
+
+  /* 风险与保证金：不随涨跌配色切换 */
+  --risk-safe: #2C6A61;
+  --risk-safe-soft: #DFECE8;
+  --risk-watch: #7C4F0D;
+  --risk-watch-soft: #F7E9C8;
+  --risk-danger: #A32F23;
+  --risk-danger-soft: #F6DFDA;
+  --risk-liq: #6E1A14;
+  --risk-liq-soft: #F1D6D1;
+  --gauge-track: #E7DFCF;
+
+  /* 非行情状态 */
+  --loan: #6A4B78;
+  --loan-soft: #EDE4F0;
+  --info: #24596F;
+  --info-soft: #DFEBF0;
+  --warn: #7C4F0D;
+  --warn-soft: #F7E7C6;
+  --danger: #A62C21;
+  --danger-soft: #F5DDD8;
+  --on-danger: #FFF8F5;
+  --success: #2F6B53;
+  --success-soft: #E2EEE8;
+
+  /* 图表：白天也保持深色仪表盘 */
+  --chart-bg: #0F1B20;
+  --chart-bg-elev: #15262B;
+  --chart-border: rgba(235, 228, 211, .12);
+  --chart-grid: rgba(235, 228, 211, .07);
+  --chart-grid-strong: rgba(235, 228, 211, .14);
+  --chart-axis: #91A59F;
+  --chart-text: #DDE6E1;
+  --chart-red: #FF7468;
+  --chart-red-soft: rgba(255, 116, 104, .16);
+  --chart-green: #43C9AA;
+  --chart-green-soft: rgba(67, 201, 170, .15);
+  --chart-ma-1: #E6C177;
+  --chart-ma-2: #83A9D6;
+  --chart-ma-3: #B692C4;
+  --chart-crosshair: #C8D4CF;
+  --chart-volume: rgba(200, 212, 207, .34);
+  --chart-current: #D7A65A;
+  --chart-entry: #D7A65A;
+  --chart-sl: #FF7A6E;
+  --chart-tp: #6FC7E2;
+  --chart-liq: #FF4D42;
+  --chart-liq-fill: rgba(255, 77, 66, .08);
+  --chart-order: #C9B47C;
+  --chart-tip-bg: rgba(9, 18, 22, .92);
+  --chart-tip-border: rgba(215, 166, 90, .34);
+  --chart-equity: #D2A35A;
+  --chart-equity-fill: rgba(210, 163, 90, .20);
+  --chart-equity-drawdown: rgba(255, 116, 104, .16);
+
+  /* 阴影与浮层 */
+  --shadow-1: inset 0 1px 0 rgba(255, 255, 255, .55),
+              0 1px 2px rgba(25, 38, 43, .06),
+              0 8px 24px rgba(25, 38, 43, .045);
+  --shadow-2: inset 0 1px 0 rgba(255, 255, 255, .55),
+              0 12px 36px rgba(25, 38, 43, .10);
+  --shadow-float: 0 24px 80px rgba(14, 30, 34, .26);
+  --overlay: rgba(10, 20, 23, .56);
+  --scrollbar: #CFC5B3;
+  --selection: #E8D4AF;
+}
+
+/* ==========================================================================
+   夜间主题（默认，index.html 已设置 data-theme="night"）
+   ========================================================================== */
+html[data-theme="night"] {
+  color-scheme: dark;
+
+  --bg: #0A1114;
+  --bg-grain: rgba(216, 166, 92, .028);
+  --surface: #101B1F;
+  --surface-raised: #152429;
+  --surface-sunken: #070F12;
+  --surface-hover: #192C31;
+  --surface-active: #20363B;
+
+  --ink: #EDE5D4;
+  --ink-2: #C9C2B4;
+  /* 次级文字在 surface-raised / hover 上也保持 ≥4.5:1 */
+  --text-muted: #A3AFAB;
+  --text-faint: #8A9894;
+
+  --border: #27393D;
+  --border-strong: #3B5155;
+  --border-soft: #1B2C30;
+
+  --brand: #D8A65C;
+  --brand-2: #E9C27F;
+  --brand-contrast: #111A1D;
+  --brass: #D8A65C;
+  --brass-strong: #F0C47C;
+  --brass-soft: #332817;
+  --action: #D8A65C;
+  --action-hover: #E9BA70;
+  --action-contrast: #17140D;
+  --accent: #D8A65C;
+  --accent-hover: #E9BA70;
+  --accent-contrast: #17140D;
+  --link: #F0C47C;
+  --focus: #E9BA70;
+  --focus-ring: rgba(233, 186, 112, .32);
+
+  --red-500: #FF776A;
+  --red-600: #FF9C92;
+  --red-soft: #3A1F1C;
+  --on-red: #2A100E;
+  --green-500: #46D3B2;
+  --green-600: #79E6CC;
+  --green-soft: #12352C;
+  --on-green: #06251E;
+
+  --bid: #7FB6CE;
+  --ask: #E0B168;
+  --spread: #B8A27F;
+  --spread-soft: #2A2419;
+  --spread-wide: var(--risk-watch);
+
+  --risk-safe: #6FC9B8;
+  --risk-safe-soft: #13362F;
+  --risk-watch: #E4B660;
+  --risk-watch-soft: #392F18;
+  --risk-danger: #FF8B7D;
+  --risk-danger-soft: #3D1E1A;
+  --risk-liq: #FF5B50;
+  --risk-liq-soft: #421713;
+  --gauge-track: #1B2C30;
+
+  --loan: #C9A6D8;
+  --loan-soft: #2D2035;
+  --info: #8BC8E3;
+  --info-soft: #19303A;
+  --warn: #E4B660;
+  --warn-soft: #392F18;
+  --danger: #FF8B7D;
+  --danger-soft: #3D1E1A;
+  --on-danger: #2A100E;
+  --success: #6FD3B5;
+  --success-soft: #13362F;
+
+  --chart-bg: #070E11;
+  --chart-bg-elev: #0C171B;
+  --chart-border: rgba(235, 229, 212, .10);
+  --chart-grid: rgba(235, 229, 212, .055);
+  --chart-grid-strong: rgba(235, 229, 212, .12);
+  --chart-axis: #7F928F;
+  --chart-text: #DCE5E0;
+  --chart-red: #FF8276;
+  --chart-red-soft: rgba(255, 130, 118, .16);
+  --chart-green: #4BD9B7;
+  --chart-green-soft: rgba(75, 217, 183, .14);
+  --chart-ma-1: #F2CD86;
+  --chart-ma-2: #8CB9E8;
+  --chart-ma-3: #C79ED6;
+  --chart-crosshair: #AABBB6;
+  --chart-volume: rgba(190, 205, 199, .30);
+  --chart-current: #E1B772;
+  --chart-entry: #E1B772;
+  --chart-sl: #FF8B7D;
+  --chart-tp: #84D3EA;
+  --chart-liq: #FF5B50;
+  --chart-liq-fill: rgba(255, 91, 80, .10);
+  --chart-order: #D8C08C;
+  --chart-tip-bg: rgba(5, 12, 15, .94);
+  --chart-tip-border: rgba(235, 196, 124, .32);
+  --chart-equity: #E1B772;
+  --chart-equity-fill: rgba(225, 183, 114, .18);
+  --chart-equity-drawdown: rgba(255, 130, 118, .15);
+
+  --shadow-1: inset 0 1px 0 rgba(255, 255, 255, .03),
+              0 1px 2px rgba(0, 0, 0, .32),
+              0 10px 28px rgba(0, 0, 0, .22);
+  --shadow-2: inset 0 1px 0 rgba(255, 255, 255, .04),
+              0 18px 48px rgba(0, 0, 0, .36);
+  --shadow-float: 0 28px 90px rgba(0, 0, 0, .62);
+  --overlay: rgba(2, 7, 9, .74);
+  --scrollbar: #30464A;
+  --selection: #4A3420;
+}
+
+/* ==========================================================================
+   涨跌语义（默认中式：红涨绿跌）
+   只交换颜色语义，符号与文字不变；风险色不参与切换。
+   ========================================================================== */
+:root {
+  --mkt-up: var(--red-500);
+  --mkt-up-strong: var(--red-600);
+  --mkt-up-soft: var(--red-soft);
+  --mkt-up-on: var(--on-red);
+  --mkt-down: var(--green-500);
+  --mkt-down-strong: var(--green-600);
+  --mkt-down-soft: var(--green-soft);
+  --mkt-down-on: var(--on-green);
+  --chart-up: var(--chart-red);
+  --chart-up-soft: var(--chart-red-soft);
+  --chart-down: var(--chart-green);
+  --chart-down-soft: var(--chart-green-soft);
+}
+
+/* 国际模式：绿涨红跌 */
+html[data-updown="global"] {
+  --mkt-up: var(--green-500);
+  --mkt-up-strong: var(--green-600);
+  --mkt-up-soft: var(--green-soft);
+  --mkt-up-on: var(--on-green);
+  --mkt-down: var(--red-500);
+  --mkt-down-strong: var(--red-600);
+  --mkt-down-soft: var(--red-soft);
+  --mkt-down-on: var(--on-red);
+  --chart-up: var(--chart-green);
+  --chart-up-soft: var(--chart-green-soft);
+  --chart-down: var(--chart-red);
+  --chart-down-soft: var(--chart-red-soft);
+}
+
+/* ==========================================================================
+   Claude 风格覆盖：暖纸、陶土橙、克制边框与柔和圆角
+   仅覆盖颜色/字体/圆角/阴影令牌，布局令牌保持不变。
+   ========================================================================== */
+:root,
+html[data-theme="day"] {
+  --font-ui: "Styrene B", "Söhne", "Inter", -apple-system, "Segoe UI", Roboto,
+    "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Tiempos Headline", "Source Serif 4", "Source Serif Pro",
+    "Songti SC", STSong, "Noto Serif CJK SC", "Source Han Serif SC", Georgia, serif;
+  --font-mono: "SFMono-Regular", "SF Mono", "Cascadia Code", "Roboto Mono",
+    "JetBrains Mono", "IBM Plex Mono", "Noto Sans Mono", ui-monospace, monospace;
+
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 12px;
+  --r-xl: 14px;
+  --r-2xl: 16px;
+  --r-3xl: 20px;
+
+  color-scheme: light;
+
+  --bg: #F5F4EE;
+  --bg-grain: transparent;
+  --surface: #FBFAF7;
+  --surface-raised: #FFFFFF;
+  --surface-sunken: #EFECE4;
+  --surface-hover: #F5F2EA;
+  --surface-active: #ECE8DF;
+
+  --ink: #262624;
+  --ink-2: #3F3D38;
+  --text-muted: #6B6860;
+  --text-faint: #746F65;
+
+  --border: #E3DED3;
+  --border-strong: #CFC8BA;
+  --border-soft: #ECE8DF;
+
+  --brand: #C96442;
+  --brand-2: #B4532F;
+  --brand-contrast: #FFF8F4;
+  --brass: #C96A46;
+  --brass-strong: #A94B2C;
+  --brass-soft: #F4E4DB;
+  --action: #B4532F;
+  --action-hover: #9E4528;
+  --action-contrast: #FFF9F5;
+  --accent: #B4532F;
+  --accent-hover: #9E4528;
+  --accent-contrast: #FFF9F5;
+  --link: #A94B2C;
+  --focus: #D97757;
+  --focus-ring: rgba(217, 119, 87, .30);
+
+  --red-500: #C0503B;
+  --red-600: #A33E2C;
+  --red-soft: #F8E5DF;
+  --on-red: #FFF8F5;
+  --green-500: #4F7D66;
+  --green-600: #3C6652;
+  --green-soft: #E4EDE7;
+  --on-green: #F5FAF7;
+
+  --bid: #4F6E7A;
+  --ask: #965F2E;
+  --spread: #7A6A55;
+  --spread-soft: #F0EADF;
+  --spread-wide: var(--risk-watch);
+
+  --risk-safe: #4F7D66;
+  --risk-safe-soft: #E4EDE7;
+  --risk-watch: #946529;
+  --risk-watch-soft: #F7EBD7;
+  --risk-danger: #B04332;
+  --risk-danger-soft: #F7E2DD;
+  --risk-liq: #8E2F22;
+  --risk-liq-soft: #F2DAD5;
+  --gauge-track: #E7E1D5;
+
+  --loan: #7A5C82;
+  --loan-soft: #EFE8F1;
+  --info: #4F6E7A;
+  --info-soft: #E6EDF0;
+  --warn: #946529;
+  --warn-soft: #F7EBD7;
+  --danger: #B04332;
+  --danger-soft: #F7E2DD;
+  --on-danger: #FFF8F5;
+  --success: #4F7D66;
+  --success-soft: #E4EDE7;
+
+  /* 图表：浅色纸面，陶土橙 / 鼠尾草绿 */
+  --chart-bg: #FBFAF7;
+  --chart-bg-elev: #F3F0E8;
+  --chart-border: rgba(38, 38, 36, .13);
+  --chart-grid: rgba(38, 38, 36, .06);
+  --chart-grid-strong: rgba(38, 38, 36, .13);
+  --chart-axis: #7C776D;
+  --chart-text: #3F3D38;
+  --chart-red: #C0503B;
+  --chart-red-soft: rgba(192, 80, 59, .14);
+  --chart-green: #4F7D66;
+  --chart-green-soft: rgba(79, 125, 102, .14);
+  --chart-ma-1: #C08A4E;
+  --chart-ma-2: #5F7F91;
+  --chart-ma-3: #9A7FA8;
+  --chart-crosshair: #5F5B53;
+  --chart-volume: rgba(60, 58, 53, .24);
+  --chart-current: #C96442;
+  --chart-entry: #C96442;
+  --chart-sl: #C0503B;
+  --chart-tp: #5F7F91;
+  --chart-liq: #A33E2C;
+  --chart-liq-fill: rgba(163, 62, 44, .08);
+  --chart-order: #B08A54;
+  --chart-tip-bg: rgba(251, 250, 247, .97);
+  --chart-tip-border: rgba(201, 100, 66, .32);
+  --chart-equity: #C15F3C;
+  --chart-equity-fill: rgba(193, 95, 60, .15);
+  --chart-equity-drawdown: rgba(192, 80, 59, .14);
+
+  --shadow-1: inset 0 1px 0 rgba(255, 255, 255, .75),
+              0 1px 2px rgba(38, 38, 36, .04),
+              0 8px 24px rgba(38, 38, 36, .035);
+  --shadow-2: inset 0 1px 0 rgba(255, 255, 255, .75),
+              0 14px 38px rgba(38, 38, 36, .09);
+  --shadow-float: 0 26px 80px rgba(38, 38, 36, .18);
+  --overlay: rgba(38, 38, 36, .34);
+  --scrollbar: #D8D2C6;
+  --selection: #F3DDD3;
+}
+
+html[data-theme="night"] {
+  color-scheme: dark;
+
+  --bg: #1F1E1D;
+  --bg-grain: transparent;
+  --surface: #262624;
+  --surface-raised: #2B2A27;
+  --surface-sunken: #191817;
+  --surface-hover: #302E2A;
+  --surface-active: #37342F;
+
+  --ink: #F5F3EC;
+  --ink-2: #DAD5C9;
+  --text-muted: #B0AA9E;
+  --text-faint: #948E83;
+
+  --border: #3B3833;
+  --border-strong: #514C44;
+  --border-soft: #322F2B;
+
+  --brand: #E08A6E;
+  --brand-2: #EDA48B;
+  --brand-contrast: #1F1E1D;
+  --brass: #E08A6E;
+  --brass-strong: #F0A88F;
+  --brass-soft: #3A2A24;
+  --action: #D97757;
+  --action-hover: #E48B6D;
+  --action-contrast: #1F1E1D;
+  --accent: #E08A6E;
+  --accent-hover: #EDA48B;
+  --accent-contrast: #1F1E1D;
+  --link: #EDA48B;
+  --focus: #E08A6E;
+  --focus-ring: rgba(224, 138, 110, .30);
+
+  --red-500: #E27964;
+  --red-600: #F09A87;
+  --red-soft: #3B2620;
+  --on-red: #1F1E1D;
+  --green-500: #86B49E;
+  --green-600: #A5CCB9;
+  --green-soft: #24332C;
+  --on-green: #16221C;
+
+  --bid: #8FAFBC;
+  --ask: #D9A15F;
+  --spread: #B7AC98;
+  --spread-soft: #2C2822;
+  --spread-wide: var(--risk-watch);
+
+  --risk-safe: #86B49E;
+  --risk-safe-soft: #24332C;
+  --risk-watch: #D9A15F;
+  --risk-watch-soft: #342B1E;
+  --risk-danger: #E27964;
+  --risk-danger-soft: #3B2620;
+  --risk-liq: #EE8B7A;
+  --risk-liq-soft: #40241F;
+  --gauge-track: #35322D;
+
+  --loan: #C6A6CE;
+  --loan-soft: #302637;
+  --info: #8FAFBC;
+  --info-soft: #24303A;
+  --warn: #D9A15F;
+  --warn-soft: #342B1E;
+  --danger: #E27964;
+  --danger-soft: #3B2620;
+  --on-danger: #1F1E1D;
+  --success: #86B49E;
+  --success-soft: #24332C;
+
+  --chart-bg: #1B1A18;
+  --chart-bg-elev: #24221F;
+  --chart-border: rgba(245, 243, 236, .10);
+  --chart-grid: rgba(245, 243, 236, .06);
+  --chart-grid-strong: rgba(245, 243, 236, .12);
+  --chart-axis: #9A9489;
+  --chart-text: #E8E3D9;
+  --chart-red: #E27964;
+  --chart-red-soft: rgba(226, 121, 100, .16);
+  --chart-green: #86B49E;
+  --chart-green-soft: rgba(134, 180, 158, .15);
+  --chart-ma-1: #D9A15F;
+  --chart-ma-2: #8FAFBC;
+  --chart-ma-3: #C6A6CE;
+  --chart-crosshair: #B8B2A6;
+  --chart-volume: rgba(200, 195, 185, .28);
+  --chart-current: #E08A6E;
+  --chart-entry: #E08A6E;
+  --chart-sl: #E27964;
+  --chart-tp: #8FAFBC;
+  --chart-liq: #EE8B7A;
+  --chart-liq-fill: rgba(238, 139, 122, .10);
+  --chart-order: #D9B57C;
+  --chart-tip-bg: rgba(20, 19, 18, .95);
+  --chart-tip-border: rgba(224, 138, 110, .35);
+  --chart-equity: #E08A6E;
+  --chart-equity-fill: rgba(224, 138, 110, .18);
+  --chart-equity-drawdown: rgba(226, 121, 100, .16);
+
+  --shadow-1: inset 0 1px 0 rgba(255, 255, 255, .03),
+              0 1px 2px rgba(0, 0, 0, .24),
+              0 10px 28px rgba(0, 0, 0, .16);
+  --shadow-2: inset 0 1px 0 rgba(255, 255, 255, .04),
+              0 18px 48px rgba(0, 0, 0, .30);
+  --shadow-float: 0 28px 90px rgba(0, 0, 0, .60);
+  --overlay: rgba(10, 9, 8, .70);
+  --scrollbar: #4A453E;
+  --selection: #4A2E25;
+}

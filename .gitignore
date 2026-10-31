@@ -1,0 +1,8 @@
+node_modules/
+build/
+dist/
+android/build/
+android/assets/www/
+android/debug.keystore
+*.log
+.DS_Store

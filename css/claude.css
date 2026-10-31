@@ -1,0 +1,388 @@
+/* ==========================================================================
+   Claude 风格界面细化
+   暖纸底、陶土橙主色、衬线标题、克制边框与柔和圆角。
+   只覆盖视觉细节，不改变布局与游戏逻辑。
+   ========================================================================== */
+
+body {
+  background-image: none;
+  letter-spacing: .003em;
+}
+
+::selection {
+  background: var(--selection);
+  color: var(--ink);
+}
+
+/* 顶栏与账户条：更像应用外壳，而不是交易终端 */
+.topbar,
+.account-bar {
+  background: var(--bg);
+  box-shadow: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar {
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  backdrop-filter: saturate(140%) blur(10px);
+}
+
+.brand-mark {
+  filter: none;
+}
+
+.brand-text strong {
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+
+.brand-text small,
+.kicker,
+.pair-group-label {
+  letter-spacing: .14em;
+  color: var(--accent);
+}
+
+.kicker {
+  letter-spacing: .12em;
+}
+
+.mode-tabs {
+  background: var(--surface-sunken);
+  border-color: var(--border-soft);
+}
+
+.mode-tab {
+  font-weight: 500;
+}
+
+.mode-tab.active {
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(38, 38, 36, .06);
+}
+
+.top-actions .text-button {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.text-button:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.clock-pill,
+.mode-badge,
+.order-pair,
+.count-pill {
+  border-radius: var(--r-pill);
+}
+
+.mode-badge,
+.order-pair,
+.desk-tab.active .count-pill {
+  background: var(--brass-soft);
+  color: var(--brass-strong);
+}
+
+.account-lead {
+  border-left-color: var(--brand);
+}
+
+.equity {
+  font-weight: 500;
+  letter-spacing: -.03em;
+}
+
+.metric-level .gauge,
+.gauge {
+  background: var(--gauge-track);
+}
+
+/* 面板与标题 */
+.panel {
+  border-radius: var(--r-2xl);
+  box-shadow: var(--shadow-1);
+}
+
+.panel-heading h2,
+.modal h2,
+.story-body h2 {
+  font-weight: 600;
+  letter-spacing: -.012em;
+}
+
+.corner-mark {
+  display: none;
+}
+
+.heading-glyph {
+  color: var(--accent);
+  opacity: .45;
+}
+
+/* 按钮 */
+.primary-button,
+.outline-button,
+.danger-button {
+  border-radius: var(--r-md);
+  font-weight: 600;
+}
+
+.primary-button {
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--action-contrast);
+}
+
+.primary-button:hover {
+  background: var(--action-hover);
+  border-color: var(--action-hover);
+}
+
+.outline-button {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--ink-2);
+}
+
+.outline-button:hover {
+  background: var(--surface-hover);
+  border-color: var(--brand);
+  color: var(--brand-2);
+}
+
+.danger-button {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.text-button {
+  border-radius: var(--r-md);
+}
+
+/* 分段控件 */
+.seg {
+  background: var(--surface-sunken);
+  border-color: var(--border-soft);
+  border-radius: var(--r-md);
+}
+
+.seg button {
+  border-radius: calc(var(--r-md) - 2px);
+  font-weight: 500;
+}
+
+.seg button.active {
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(38, 38, 36, .06);
+}
+
+/* 输入 */
+.input-shell,
+.select-shell {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  border-radius: var(--r-md);
+}
+
+.input-shell:focus-within,
+.select-shell:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.input-shell input,
+.select-shell select {
+  color: var(--ink);
+}
+
+/* 市场列表 */
+.pair-row {
+  border-radius: var(--r-md);
+}
+
+.pair-row:hover {
+  background: var(--surface-hover);
+}
+
+.pair-row.selected {
+  background: var(--brass-soft);
+  border-left-color: var(--brand);
+}
+
+.pair-row.selected .pair-id {
+  color: var(--brand-2);
+}
+
+.pair-id,
+.pair-price,
+.pair-chg,
+.pair-spread {
+  font-variant-numeric: tabular-nums;
+}
+
+.market-foot {
+  border-top-color: var(--border-soft);
+}
+
+/* 图表容器 */
+.chart-wrap {
+  border-radius: var(--r-xl);
+  box-shadow: none;
+}
+
+.chart-badge {
+  background: var(--chart-bg-elev);
+  color: var(--chart-axis);
+}
+
+.chart-toolbar {
+  border-color: var(--border-soft);
+}
+
+/* 下单票 */
+.order-ticket {
+  background: var(--surface);
+}
+
+.trade-button {
+  height: 50px;
+  border-radius: var(--r-lg);
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+.trade-button.long {
+  background: var(--mkt-up);
+  border-color: var(--mkt-up);
+  color: var(--mkt-up-on);
+}
+
+.trade-button.long:hover {
+  background: var(--mkt-up-strong);
+  border-color: var(--mkt-up-strong);
+  color: var(--mkt-up-on);
+}
+
+.trade-button.short {
+  background: var(--mkt-down);
+  border-color: var(--mkt-down);
+  color: var(--mkt-down-on);
+}
+
+.trade-button.short:hover {
+  background: var(--mkt-down-strong);
+  border-color: var(--mkt-down-strong);
+  color: var(--mkt-down-on);
+}
+
+.trade-button em {
+  opacity: .72;
+}
+
+.quick-lots button {
+  border-radius: var(--r-pill);
+}
+
+.order-preview div {
+  border-bottom-color: var(--border-soft);
+}
+
+.risk-size {
+  color: var(--brand-2);
+}
+
+/* 持仓 / 挂单 / 历史 */
+.desk-tabs {
+  border-bottom-color: var(--border);
+}
+
+.desk-tab {
+  font-weight: 500;
+}
+
+.desk-tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--brand);
+}
+
+.position-card,
+.order-card,
+.history-row {
+  border-radius: var(--r-lg);
+}
+
+.pos-btn {
+  border-radius: var(--r-sm);
+}
+
+/* 弹窗与浮层 */
+.modal-backdrop {
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+.modal {
+  border-radius: var(--r-3xl);
+  box-shadow: var(--shadow-float);
+}
+
+.modal-icon {
+  border-radius: var(--r-lg);
+}
+
+.toast-item {
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+}
+
+.news-float {
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-2);
+}
+
+/* 战役 / 挑战 / 成就卡片 */
+.battle-card,
+.challenge-card,
+.achievement-card {
+  border-radius: var(--r-xl);
+}
+
+.battle-card:hover:not(:disabled) {
+  border-color: var(--brand);
+}
+
+.battle-card.cleared {
+  border-color: var(--brand);
+}
+
+.challenge-card {
+  border-top-color: var(--brand);
+}
+
+/* 滚动条与焦点 */
+* {
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* 去掉票券缺口，保持 Claude 的干净卡片 */
+.challenge-card {
+  background: var(--surface-raised);
+}
+
+.challenge-card h3 {
+  font-weight: 600;
+}
+
+/* 选中行底色更深，改用强色保证小字对比度 */
+.pair-row.selected .pair-chg.up { color: var(--mkt-up-strong); }
+.pair-row.selected .pair-chg.down { color: var(--mkt-down-strong); }
+.pair-row.selected .pair-spread { color: var(--ink-2); }

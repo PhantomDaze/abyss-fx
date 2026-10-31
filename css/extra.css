@@ -1,0 +1,186 @@
+/* 项目补充样式：生成样式表之后的小修与交互兜底 */
+.hidden { display: none !important; }
+
+/* 快讯浮卡不阻挡下单：只有关闭按钮可点 */
+.news-float { pointer-events: none; }
+.news-float .nf-close { pointer-events: auto; }
+
+/* 回放模式下不可交易的货币对 */
+.pair-row:disabled,
+.pair-row.disabled {
+  opacity: .42;
+  cursor: not-allowed;
+  filter: saturate(.6);
+}
+
+/* 宽弹窗兜底 */
+.modal.wide { width: min(720px, calc(100vw - 32px)); }
+
+/* 表单：历史回放设置 */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+.form-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+.form-field > span { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+.form-field input,
+.form-field select {
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font: 500 13px var(--font-mono);
+  width: 100%;
+  box-sizing: border-box;
+}
+.form-field input:focus-visible,
+.form-field select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.quick-range { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+.quick-range button {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-sunken);
+  color: var(--ink-2);
+  font: 600 11px var(--font-ui);
+  cursor: pointer;
+}
+.quick-range button:hover { border-color: var(--brass); color: var(--brass-strong); }
+
+@media (max-width: 720px) {
+  .form-grid, .form-grid.two { grid-template-columns: 1fr; }
+}
+
+/* 教程里的小演示条 */
+.tut-demo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font: 500 12px var(--font-mono);
+}
+
+/* 结算行 */
+.settle-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--border-soft);
+  font-size: 13px;
+}
+.settle-line > span { color: var(--text-muted); }
+.settle-line.big strong { font-size: 24px; color: var(--brass); }
+.history-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--brass);
+  background: var(--brass-soft);
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.7;
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+}
+.settle-warn { color: var(--danger); font-size: 12px; margin-top: 8px; }
+
+/* 持仓卡片里的“市价/限价”小标签 */
+.pos-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: var(--r-xs);
+  background: var(--surface-sunken);
+  color: var(--text-faint);
+  font-size: 9px;
+  letter-spacing: .02em;
+}
+.pos-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+
+/* 屏幕阅读器 */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 弹窗打开时，Toast 不应压住弹窗按钮 */
+#toast { z-index: 65; pointer-events: none; }
+#toast .toast-item { pointer-events: none; }
+
+/* 账户条的盈亏颜色：容器规则优先级高于 .up/.down，需要显式覆盖 */
+#floatingValue.up, #equityDelta.up { color: var(--mkt-up); }
+#floatingValue.down, #equityDelta.down { color: var(--mkt-down); }
+
+/* 通用弹窗必须高于设置/战役等专用弹窗（例如“清除存档”确认框从设置里打开） */
+#modal.modal-backdrop { z-index: 90; }
+
+/* 按 2% 风险计算手数 */
+.risk-size {
+  align-self: flex-start;
+  margin: -2px 0 8px;
+  font-size: 11px;
+  color: var(--brass-strong);
+}
+.risk-size:hover { color: var(--brass); text-decoration: underline; }
+
+/* 弹窗打开时的 Toast 必须在遮罩之上，否则校验错误完全不可见 */
+#toast { z-index: 96; }
+
+/* 新闻浮卡移到图表左下，避开右栏下单票与风险信息 */
+.news-float {
+  left: 0;
+  right: 0;
+  bottom: 70px;
+  margin-inline: auto;
+  width: min(420px, calc(100vw - 48px));
+  max-height: 190px;
+  overflow: hidden;
+}
+.news-float #nfBody {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+@media (max-width: 899px) {
+  .news-float {
+    left: 12px;
+    right: 12px;
+    bottom: 100px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+/* 禁用态统一视觉 */
+.outline-button:disabled,
+.primary-button:disabled,
+.danger-button:disabled,
+.pos-btn:disabled,
+.text-button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+select:disabled { opacity: .5; cursor: not-allowed; }
+
+/* 结算/统计里的涨跌色曾被 .settle-line strong 等覆盖 */
+.settle-line strong.up, .stats-hero strong.up, .stat-cell strong.up { color: var(--mkt-up); }
+.settle-line strong.down, .stats-hero strong.down, .stat-cell strong.down { color: var(--mkt-down); }
