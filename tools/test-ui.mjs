@@ -11,8 +11,13 @@ fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 });
 const errors = [];
+let ignoreNetworkErrors = false;
 page.on('console', (m) => {
-  if (m.type() === 'error') errors.push('console: ' + m.text());
+  if (m.type() !== 'error') return;
+  const text = m.text();
+  // 离线降级测试会故意制造 500，浏览器会把失败请求记成 console error
+  if (ignoreNetworkErrors && /Failed to load resource/.test(text)) return;
+  errors.push('console: ' + text);
 });
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
 
@@ -147,6 +152,99 @@ if (await chStart.isEnabled()) {
   await page.waitForTimeout(1200);
   await shot('09-challenge');
 }
+
+// 全球排行榜：模拟成功 / 离线 / 未配置
+await page.evaluate(() => FX.Leaderboard.configure('https://mock.leaderboard.test'));
+let lbRequests = [];
+let lbOffline = false;
+await page.route('**/api/daily/**', async (route) => {
+  const req = route.request();
+  lbRequests.push({ method: req.method(), url: req.url(), body: req.postData() });
+  if (lbOffline) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'offline test' }) });
+  const url = new URL(req.url());
+  if (req.method() === 'POST') {
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, best: 900, rank: 1 }) });
+  }
+  if (url.pathname.endsWith('/champions')) {
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ rows: [{ dayKey: '2026-10-30', name: '昨天冠军', score: 1000 }] }) });
+  }
+  return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+    dayKey: '2026-10-31', total: 2,
+    rows: [
+      { name: '甲', score: 900, equity: 12000, dd: 8, trades: 12, hits: 2 },
+      { name: '乙', score: 700, equity: 11000, dd: 10, trades: 9, hits: 1 },
+    ],
+    me: { score: 900, rank: 1 },
+  }) });
+});
+await page.click('#modeTabs .mode-tab[data-mode="challenge"]');
+await page.waitForTimeout(300);
+await page.click('#chGlobal');
+await page.waitForTimeout(500);
+const lbRows = await page.locator('#lbContent .lb-row').count();
+log('leaderboard rows', lbRows);
+if (lbRows !== 2) throw new Error('全球榜渲染异常: ' + lbRows);
+await shot('09b-leaderboard');
+await page.fill('#lbNameInput', '测试昵称');
+await page.click('#lbNameSave');
+await page.waitForTimeout(300);
+await page.click('#modalClose');
+await page.waitForTimeout(200);
+// 直接构造一次有资格结算的挑战结果，验证结算弹窗的自动提交
+await page.evaluate(() => {
+  FX.Leaderboard.setName('测试昵称');
+  FX.ui.showSettle({
+    kind: 'challenge',
+    dayKey: FX.game.dailyKey(),
+    score: 500, equity: 11000, retPct: 10, dd: 5, trades: 10, hits: 1,
+    modifier: FX.CHALLENGE_MODS[0], liquidated: false,
+    best: { score: 500 }, rows: [],
+  });
+});
+await page.waitForTimeout(800);
+const submitted = lbRequests.filter((r) => r.method === 'POST');
+log('leaderboard submits', submitted.length);
+if (!submitted.length) throw new Error('结算后没有提交成绩');
+const payload = JSON.parse(submitted[submitted.length - 1].body);
+if (!payload.playerId || payload.name !== '测试昵称' || !(payload.score > 0)) throw new Error('提交内容异常');
+await shot('09c-settle-global');
+await page.click('#settleGlobal');
+await page.waitForTimeout(400);
+await page.click('#lbTabChamp');
+await page.waitForTimeout(400);
+const champRows = await page.locator('#lbContent .lb-row').count();
+log('champion rows', champRows);
+if (champRows < 1) throw new Error('历史冠军没有渲染');
+await page.click('#modalClose');
+await page.waitForTimeout(200);
+// 离线降级
+await page.evaluate(() => localStorage.removeItem('kurumi-fx:leaderboard-cache'));
+lbOffline = true;
+ignoreNetworkErrors = true;
+await page.click('#modeTabs .mode-tab[data-mode="challenge"]');
+await page.waitForTimeout(300);
+await page.click('#chGlobal');
+await page.waitForTimeout(600);
+const offlineText = await page.locator('#lbContent').textContent();
+log('offline text', offlineText.slice(0, 40));
+if (!offlineText.includes('暂不可用')) throw new Error('离线降级提示缺失');
+await shot('09d-leaderboard-offline');
+await page.click('#modalClose');
+// 未配置：不应发起请求
+lbOffline = false;
+ignoreNetworkErrors = false;
+const before = lbRequests.length;
+await page.evaluate(() => FX.Leaderboard.configure(''));
+await page.click('#modeTabs .mode-tab[data-mode="challenge"]');
+await page.waitForTimeout(300);
+await page.click('#chGlobal');
+await page.waitForTimeout(300);
+const unconfigured = await page.locator('#lbMeta').textContent();
+log('unconfigured meta', JSON.stringify(unconfigured));
+if (!unconfigured.includes('本地榜')) throw new Error('未配置时没有显示本地榜');
+if (lbRequests.length !== before) throw new Error('未配置时仍然发起了网络请求');
+await page.click('#modalClose');
+await page.waitForTimeout(200);
 
 // 经历一次强平场景：回模拟，最大杠杆重仓
 await page.click('#modeTabs .mode-tab[data-mode="sim"]');
