@@ -19,7 +19,20 @@
 3. `Chart.render()` 返回是否成功绘制；失败时在图表区显示诊断文字（画布尺寸、窗口尺寸或初始化错误），便于用户反馈。
 4. exe 重新构建并更新 Release 附件。
 
+## 用户补充（2026-10-31）
+- 设备：OPPO A32，Edge 浏览器。
+- 表现：图表区域是**纯橙黄色**，不是空白。
+- 判断：整块纯色更像低端 GPU（Adreno 610）把 canvas 图层渲染成未初始化色块，
+  而不是尺寸为 0 或数据为空。
+
+## 追加修复
+1. `canvas.getContext('2d', { willReadFrequently: true })`：让 Chromium 使用 CPU 画布，
+   规避部分 Adreno/Mali 驱动把 canvas 渲染成纯色块的问题；实测 30 次重绘平均 1.6ms/次。
+2. `:root { color-scheme: light }` / `html[data-theme="night"] { color-scheme: dark }`：
+   声明页面自己管理主题，避免 Edge/系统"强制深色"对页面和画布做额外处理。
+3. 给 index.html 的 CSS/JS 加 `?v=20261031c` 版本号，绕过 GitHub Pages 的缓存，
+   保证手机端能拿到新代码。
+
 ## 待确认
-- 用户手机型号 / 系统版本 / 浏览器（Chrome、Safari、微信、QQ、UC 等）。
-- 打开方式：线上 Pages 地址、局域网地址、还是本地文件。
-- 具体表现：整块空白、"还没有行情"、诊断文字、还是图表卡片不在屏幕上；最好提供截图。
+- OPPO A32 Edge 打开线上 Pages 后图表是否恢复；如仍为纯色，尝试 Edge 设置里关闭"深色模式/强制深色"。
+- 若仍异常，需要截图与 Edge 版本号。

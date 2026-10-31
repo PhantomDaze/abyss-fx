@@ -18,7 +18,7 @@
   - 页面正常加载（标题、9 个货币对、K 线绘制、无 console 错误）；
   - 点击做多成功开仓（持仓 1，toast“买入成交”）；
   - `AbyssNative.savePng` 成功写出 PNG，并显示“分享卡已保存”提示。
-- 最终产物：`dist/abyss-fx.exe`，约 8.3 MB，sha256 `527b41717b60745c951ccb33c9e5b27058095dece77ec963debf44f22e792aac`。
+- 最终产物：`dist/abyss-fx.exe`，约 8.3 MB，sha256 `1870bd712d993097d669acea5acd8ce4371858934d382cf57f8789ec200e8f66`。
 
 ## 说明
 - 依赖 Microsoft Edge WebView2 Runtime（Win11 自带，Win10 多数已安装）；缺失时弹窗给出下载地址。
