@@ -812,13 +812,8 @@
         ctx.lineTo(x, yL);
         ctx.stroke();
 
-        if (up) {
-          // 上涨：空心
-          ctx.strokeRect(left, bodyTop, bw, bodyH);
-        } else {
-          // 下跌：实心
-          ctx.fillRect(left, bodyTop, bw, bodyH);
-        }
+        // 涨跌都画实心，只靠颜色区分；空心柱在小屏上会显得偏淡
+        ctx.fillRect(left, bodyTop, bw, bodyH);
       }
 
       // 均线 MA7 / MA25 / MA99
