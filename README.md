@@ -33,6 +33,8 @@ bash tools/build-exe.sh
 # 输出 dist/abyss-fx.exe（约 8 MB）
 ```
 
+也可以直接从 [GitHub Releases](https://github.com/PhantomDaze/abyss-fx/releases/latest) 下载。
+
 双击即可运行，无需安装、无需联网。需要 Microsoft Edge WebView2 Runtime（Windows 11 自带；Windows 10 通常已随 Edge 安装，缺失时程序会提示下载地址）。首次运行会在 `%LOCALAPPDATA%\AbyssFX` 保存 WebView2 配置与存档；分享卡保存到 `图片\AbyssFX`。exe 未签名，首次打开可能触发 SmartScreen 提示。
 
 ## Android APK
