@@ -144,14 +144,10 @@
 /* 弹窗打开时的 Toast 必须在遮罩之上，否则校验错误完全不可见 */
 #toast { z-index: 96; }
 
-/* 新闻浮卡移到图表左下，避开右栏下单票与风险信息 */
+/* 新闻浮卡固定在右下角，宽度收进右栏，避免遮挡中栏持仓 */
 .news-float {
-  left: 0;
-  right: 0;
-  bottom: 70px;
-  margin-inline: auto;
-  width: min(420px, calc(100vw - 48px));
-  max-height: 190px;
+  width: min(300px, calc(100vw - 32px));
+  max-height: 180px;
   overflow: hidden;
 }
 .news-float #nfBody {
@@ -160,13 +156,10 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-@media (max-width: 899px) {
+/* 单列/手机布局下不浮出卡片，快讯只走图表内的快讯条与新闻中心 */
+@media (max-width: 1079px) {
   .news-float {
-    left: 12px;
-    right: 12px;
-    bottom: 100px;
-    width: auto;
-    max-width: none;
+    display: none !important;
   }
 }
 
