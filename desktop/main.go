@@ -68,6 +68,7 @@ func main() {
 
 	w.SetSize(960, 640, webview2.HintMin)
 	_ = w.Bind("_savePng", savePng)
+	_ = w.Bind("_saveText", saveText)
 	w.Init(`(function(){
   window.AbyssNative = {
     savePng: function(dataUrl, filename) {
@@ -75,6 +76,13 @@ func main() {
         try { FX.ui.toast('分享卡已保存：' + p, 'ok'); } catch (e) {}
       }).catch(function(e) {
         try { FX.ui.toast('保存分享卡失败：' + e, 'warn'); } catch (_) {}
+      });
+    },
+    saveText: function(text, filename) {
+      window._saveText(text, filename).then(function(p) {
+        try { FX.ui.toast('存档已保存：' + p, 'ok'); } catch (e) {}
+      }).catch(function(e) {
+        try { FX.ui.toast('保存存档失败：' + e, 'warn'); } catch (_) {}
       });
     }
   };
@@ -156,6 +164,34 @@ func picturesDir() string {
 		return os.TempDir()
 	}
 	return filepath.Join(home, "Pictures")
+}
+
+// saveText 接收网页导出的存档 JSON，写到 下载/AbyssFX。
+func saveText(text, filename string) (string, error) {
+	name := filepath.Base(strings.TrimSpace(filename))
+	if name == "" || name == "." || name == `\` || name == "/" {
+		name = "abyss-fx-save.json"
+	}
+	if !strings.HasSuffix(strings.ToLower(name), ".json") {
+		name += ".json"
+	}
+	dir := filepath.Join(downloadsDir(), "AbyssFX")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func downloadsDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return os.TempDir()
+	}
+	return filepath.Join(home, "Downloads")
 }
 
 var (

@@ -35,5 +35,6 @@ adb install -r dist/abyss-fx-1.0.apk
 
 - 页面通过 `https://appassets.androidplatform.net/assets/...` 虚拟源加载，由 `shouldInterceptRequest` 直接读 APK 内 assets；localStorage 因此有稳定的 https 源，存档可跨启动保留。
 - 分享卡下载会调用 `AbyssNative.savePng`，Android 10+ 写入 `Pictures/AbyssFX`，旧版本写入应用外部目录。
+- 存档导出调用 `AbyssNative.saveText` 写入 `下载/AbyssFX`；导入通过 `AbyssNative.pickText` 打开系统文件选择器，不依赖 WebView 的 `<input type=file>`。
 - 当前使用 debug keystore 签名；正式分发请生成自己的 release keystore 并替换 `tools/build-apk.sh` 中的签名参数。
 - 没有网络行情；APK 不请求任何外部域名（Manifest 中的 INTERNET 权限仅用于 WebView 的 https 虚拟源）。
