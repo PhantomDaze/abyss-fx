@@ -527,8 +527,14 @@
       if (!data || data.v !== 1) return false;
       this.balance = U.num(data.balance, 10000);
       this.leverage = U.num(data.leverage, 100);
-      this.positions = Array.isArray(data.positions) ? data.positions : [];
-      this.orders = Array.isArray(data.orders) ? data.orders : [];
+      // 导入的备份可能被手改：丢弃字段残缺的持仓/挂单，避免 NaN 进入引擎
+      this.positions = Array.isArray(data.positions)
+        ? data.positions.filter((p) => p && FX.PAIR_MAP[p.pairId] && (p.side === 1 || p.side === -1)
+          && Number.isFinite(p.lots) && p.lots >= 0.01 && Number.isFinite(p.entry) && Number.isFinite(p.margin))
+        : [];
+      this.orders = Array.isArray(data.orders)
+        ? data.orders.filter((o) => o && FX.PAIR_MAP[o.pairId] && Number.isFinite(o.price) && Number.isFinite(o.lots))
+        : [];
       this.history = Array.isArray(data.history) ? data.history : [];
       this.debt = U.num(data.debt, 0);
       this.halted = !!data.halted;

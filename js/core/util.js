@@ -146,6 +146,7 @@
   /** 本地存档（带前缀，异常静默） */
   const PREFIX = 'kurumi-fx:';
   U.store = {
+    PREFIX,
     get(key, fallback) {
       try {
         const raw = localStorage.getItem(PREFIX + key);

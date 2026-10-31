@@ -918,6 +918,9 @@
           ],
         });
       };
+      // 存档导出 / 导入
+      $('setExport').onclick = () => this.openExportSave();
+      $('setImport').onclick = () => this.openImportSave();
       // 每日挑战
       $('chStart').onclick = () => {
         if (g.mode === 'challenge' && g.challenge && !g.challenge.finished) {
@@ -1474,6 +1477,172 @@
     openSettings() {
       this.applySettingsUI();
       this.showModalById('settingsModal');
+    }
+
+    // ---------- 存档导出 / 导入 ----------
+    openExportSave() {
+      const g = this.game;
+      let text;
+      try {
+        // 先落盘，确保导出的是当前内存里的最新状态
+        g.save();
+        text = FX.SaveIO.build();
+      } catch (err) {
+        this.toast('导出失败：' + (err && err.message ? err.message : err), 'warn');
+        return;
+      }
+      this._saveExportText = text;
+      const s = FX.SaveIO.summary(FX.SaveIO.parse(text));
+      const bits = [];
+      if (s.exportedAt) bits.push('导出时间 ' + this._saveTimeLabel(s.exportedAt));
+      if (s.balance != null) bits.push('余额 ' + U.money(s.balance));
+      if (s.positions) bits.push('持仓 ' + s.positions + ' 笔');
+      if (s.achievements) bits.push('成就 ' + s.achievements + ' 个');
+      this.openModal({
+        title: '导出存档',
+        icon: 'download',
+        wide: true,
+        body: `<p>存档包含账户、持仓、订单、成交记录、战役与挑战进度、成就和设置。</p>
+          <p class="modal-sub">${bits.join(' · ')}</p>
+          <textarea class="save-io-text" id="saveExportText" readonly spellcheck="false" aria-label="存档文本"></textarea>`,
+        actions: [
+          { label: '复制文本', cls: 'outline-button', onClick: () => this.copySaveText() },
+          { label: '保存文件', cls: 'primary-button', onClick: () => this.downloadSaveText() },
+          { label: '关闭', cls: 'outline-button', close: true },
+        ],
+      });
+      const ta = $('saveExportText');
+      if (ta) ta.value = text;
+    }
+
+    copySaveText() {
+      const text = this._saveExportText;
+      if (!text) return;
+      FX.SaveIO.copy(text)
+        .then(() => this.toast('存档文本已复制', 'ok'))
+        .catch((err) => this.toast('复制失败：' + (err && err.message ? err.message : err), 'warn'));
+    }
+
+    downloadSaveText() {
+      const text = this._saveExportText;
+      if (!text) return;
+      try {
+        const how = FX.SaveIO.download(text, FX.SaveIO.filename());
+        if (how !== 'native') this.toast('存档已开始下载', 'ok');
+      } catch (err) {
+        this.toast('保存失败：' + (err && err.message ? err.message : err), 'warn');
+      }
+    }
+
+    openImportSave(prefill) {
+      this.openModal({
+        title: '导入存档',
+        icon: 'download',
+        wide: true,
+        body: `<p>选择之前导出的 <code>.json</code> 存档文件，或直接把存档文本粘贴到下面。</p>
+          <button class="outline-button small save-io-pick" id="savePickBtn" type="button">选择存档文件</button>
+          <textarea class="save-io-text" id="saveImportText" spellcheck="false" placeholder="在此粘贴存档文本…" aria-label="存档文本"></textarea>
+          <p class="save-io-error hidden" id="saveImportError"></p>`,
+        actions: [
+          { label: '取消', cls: 'outline-button', close: true },
+          { label: '导入', cls: 'primary-button', onClick: () => this.confirmImportSave() },
+        ],
+      });
+      const ta = $('saveImportText');
+      if (ta && prefill) ta.value = prefill;
+      const pick = $('savePickBtn');
+      if (pick) pick.onclick = () => this.pickSaveFile();
+      const input = $('saveFileInput');
+      if (input) {
+        input.value = '';
+        input.onchange = () => {
+          const file = input.files && input.files[0];
+          if (file) this._loadSaveFile(file);
+        };
+      }
+    }
+
+    pickSaveFile() {
+      if (FX.SaveIO.pickNative()) return;
+      const input = $('saveFileInput');
+      if (input) input.click();
+    }
+
+    _loadSaveFile(file) {
+      FX.SaveIO.readFile(file)
+        .then((text) => this.onImportFileText(text))
+        .catch((err) => this._showImportError(err && err.message ? err.message : String(err)));
+    }
+
+    /** Android 原生文件选择器读取完成后回调 */
+    onImportFileText(text) {
+      const ta = $('saveImportText');
+      if (!ta) return;
+      ta.value = text == null ? '' : String(text);
+      this._showImportError('');
+      ta.focus();
+    }
+
+    _showImportError(msg) {
+      const el = $('saveImportError');
+      if (!el) return;
+      el.textContent = msg || '';
+      el.classList.toggle('hidden', !msg);
+    }
+
+    confirmImportSave() {
+      const ta = $('saveImportText');
+      const text = ta ? ta.value : '';
+      let obj;
+      try {
+        obj = FX.SaveIO.parse(text);
+      } catch (err) {
+        this._showImportError(err && err.message ? err.message : String(err));
+        return;
+      }
+      const s = FX.SaveIO.summary(obj);
+      const bits = [];
+      if (s.exportedAt) bits.push('导出时间 ' + this._saveTimeLabel(s.exportedAt));
+      if (s.mode && s.mode !== '—') bits.push('模式 ' + s.mode);
+      if (s.balance != null) bits.push('余额 ' + U.money(s.balance));
+      if (s.positions) bits.push('持仓 ' + s.positions + ' 笔');
+      if (s.orders) bits.push('挂单 ' + s.orders + ' 笔');
+      if (s.achievements) bits.push('成就 ' + s.achievements + ' 个');
+      this._pendingSaveText = text;
+      this.openModal({
+        title: '确认导入',
+        icon: 'alert',
+        body: `<p>将用备份<strong>覆盖当前全部存档</strong>，包括账户、持仓、战役/挑战进度、成就与设置。</p>
+          <p class="modal-sub">${bits.join(' · ')}</p>
+          <p class="modal-sub">此操作不可撤销，导入后页面会自动刷新。</p>`,
+        actions: [
+          {
+            label: '取消', cls: 'outline-button', close: false,
+            onClick: () => this.openImportSave(this._pendingSaveText),
+          },
+          {
+            label: '覆盖并导入', cls: 'danger-button', close: false,
+            onClick: () => {
+              try {
+                this.game.importData(obj);
+              } catch (err) {
+                this.toast('导入失败：' + (err && err.message ? err.message : err), 'warn');
+              }
+            },
+          },
+        ],
+      });
+    }
+
+    _saveTimeLabel(iso) {
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        const p = U.pad2;
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+      } catch (_) {
+        return iso;
+      }
     }
 
     confirmReset() {

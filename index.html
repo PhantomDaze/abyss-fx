@@ -6,10 +6,10 @@
 <title>深渊汇率 ABYSS FX · 外汇保证金模拟</title>
 <meta name="description" content="一款更真实的网页外汇保证金交易游戏：点差、手续费、隔夜利息、保证金水平与强平，真实历史回放与经典战役。仅供娱乐，不构成投资建议。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23F5F4EE'/%3E%3Cg fill='none' stroke='%23C96442' stroke-width='5.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 53L32 13l19 40'/%3E%3C/g%3E%3Crect x='23' y='38.5' width='18' height='5.4' rx='2.7' fill='%23C96442'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/tokens.css?v=20261031g">
-<link rel="stylesheet" href="css/app.css?v=20261031g">
-<link rel="stylesheet" href="css/extra.css?v=20261031g">
-<link rel="stylesheet" href="css/claude.css?v=20261031g">
+<link rel="stylesheet" href="css/tokens.css?v=20261031h">
+<link rel="stylesheet" href="css/app.css?v=20261031h">
+<link rel="stylesheet" href="css/extra.css?v=20261031h">
+<link rel="stylesheet" href="css/claude.css?v=20261031h">
 </head>
 <body>
 <a class="skip-link" href="#main">跳到主内容</a>
@@ -360,6 +360,7 @@
       <div class="settings-row"><div><strong>新闻频率</strong><small>模拟行情每天的事件数量</small></div><div class="seg mini" id="freqSeg"><button data-freq="low" type="button">低</button><button data-freq="mid" type="button">中</button><button data-freq="high" type="button">高</button></div></div>
       <div class="settings-row"><div><strong>硬核模式</strong><small>关闭负余额保护：跳空穿仓会留下债务并停止交易</small></div><label class="switch" aria-label="硬核模式"><input id="nbpToggle" type="checkbox" aria-label="硬核模式"><span></span></label></div>
       <div class="settings-row"><div><strong>高杠杆确认</strong><small>首次使用 200× 以上提醒一次</small></div><label class="switch" aria-label="高杠杆确认"><input id="levWarnToggle" type="checkbox" checked aria-label="高杠杆确认"><span></span></label></div>
+      <div class="settings-row"><div><strong>存档备份</strong><small>导出全部进度，或从备份文件恢复</small></div><div class="save-io-buttons"><button class="outline-button small" id="setExport" type="button">导出</button><button class="outline-button small" id="setImport" type="button">导入</button></div></div>
     </div>
     <div class="modal-actions"><button class="outline-button" id="setClear" type="button">清除全部存档</button><button class="primary-button" id="setOk" type="button">完成</button></div>
   </div>
@@ -455,18 +456,22 @@
   </div>
 </div>
 
-<script src="js/core/util.js?v=20261031g"></script>
-<script src="js/core/pairs.js?v=20261031g"></script>
-<script src="js/data/history.js?v=20261031g"></script>
-<script src="js/data/scenarios.js?v=20261031g"></script>
-<script src="js/data/achievements.js?v=20261031g"></script>
-<script src="js/core/market.js?v=20261031g"></script>
-<script src="js/core/account.js?v=20261031g"></script>
-<script src="js/core/game.js?v=20261031g"></script>
-<script src="js/ui/audio.js?v=20261031g"></script>
-<script src="js/ui/chart.js?v=20261031g"></script>
-<script src="js/ui/share.js?v=20261031g"></script>
-<script src="js/ui/ui.js?v=20261031g"></script>
-<script src="js/main.js?v=20261031g"></script>
+<!-- 存档导入用的隐藏文件选择器（Android 壳改用原生 pickText） -->
+<input type="file" id="saveFileInput" class="sr-only" accept=".json,application/json" tabindex="-1" aria-hidden="true">
+
+<script src="js/core/util.js?v=20261031h"></script>
+<script src="js/core/pairs.js?v=20261031h"></script>
+<script src="js/core/saveio.js?v=20261031h"></script>
+<script src="js/data/history.js?v=20261031h"></script>
+<script src="js/data/scenarios.js?v=20261031h"></script>
+<script src="js/data/achievements.js?v=20261031h"></script>
+<script src="js/core/market.js?v=20261031h"></script>
+<script src="js/core/account.js?v=20261031h"></script>
+<script src="js/core/game.js?v=20261031h"></script>
+<script src="js/ui/audio.js?v=20261031h"></script>
+<script src="js/ui/chart.js?v=20261031h"></script>
+<script src="js/ui/share.js?v=20261031h"></script>
+<script src="js/ui/ui.js?v=20261031h"></script>
+<script src="js/main.js?v=20261031h"></script>
 </body>
 </html>

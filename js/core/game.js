@@ -978,6 +978,8 @@
 
     // ---------- 存档 ----------
     save() {
+      // 导入备份后跳过卸载时的自动保存，避免旧状态覆盖刚写入的存档
+      if (this._skipSave) return;
       U.store.set('settings', this.settings);
       U.store.set('profile', this.profile);
       U.store.set('achievements', this.achData);
@@ -1038,7 +1040,23 @@
     }
 
     clearAll() {
+      // 清空后同样要阻止卸载时的自动保存，否则旧状态会被写回
+      this._skipSave = true;
+      this.running = false;
       for (const k of ['sim', 'session', 'settings', 'profile', 'achievements', 'flags', 'daily-meta']) U.store.remove(k);
+      location.reload();
+    }
+
+    /** 导入已校验的存档对象：覆盖本地存档后刷新页面 */
+    importData(obj) {
+      FX.SaveIO.apply(obj);
+      // 先停掉循环与自动保存，再标记跳过卸载保存，防止旧状态写回
+      this._skipSave = true;
+      this.running = false;
+      if (this._timer) clearInterval(this._timer);
+      if (this._saveTimer) clearInterval(this._saveTimer);
+      this._timer = null;
+      this._saveTimer = null;
       location.reload();
     }
 
