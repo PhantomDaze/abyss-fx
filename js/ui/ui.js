@@ -935,6 +935,10 @@
           g.finishChallenge(true);
         } else this.toast('先开始一局每日挑战。', 'info');
       };
+      $('chGlobal').onclick = () => {
+        this.closeModalById('challengeModal');
+        this.openLeaderboardModal();
+      };
     }
 
     applySettingsUI() {
@@ -1275,6 +1279,236 @@
       this.showModalById('challengeModal');
     }
 
+    // ---------- 全球排行榜 ----------
+    _challengeEntry(data) {
+      return {
+        score: data.score,
+        equity: data.equity,
+        dd: data.dd,
+        trades: data.trades,
+        hits: data.hits,
+        modId: data.modifier ? data.modifier.id : '',
+      };
+    }
+
+    /** 已有昵称时自动提交；首次不提交，等玩家在榜单里设置昵称 */
+    _autoSubmitChallenge(data, entry) {
+      const L = FX.Leaderboard;
+      if (!L || !L.available()) return;
+      if (!(entry.score > 0 && entry.trades > 0)) return;
+      if (!L.player().name) return;
+      L.submit(data.dayKey, entry).then((res) => {
+        const note = $('settleLbNote');
+        if (res.ok) {
+          const msg = `全球榜：第 ${res.rank} 名（${res.best} 分）`;
+          if (note) note.textContent = msg;
+          this.toast('成绩已提交到全球榜', 'ok');
+        } else if (res.offline || res.timeout) {
+          if (note) note.textContent = '全球榜暂不可用，成绩已保存在本地。';
+        } else if (!res.disabled && !res.needName) {
+          if (note) note.textContent = '全球榜提交失败，成绩已保存在本地，稍后可重试。';
+          this.toast('排行榜提交失败，成绩已保存在本地。', 'warn');
+        }
+      });
+    }
+
+    openLeaderboardModal(dayKey, pendingEntry) {
+      const L = FX.Leaderboard;
+      const key = dayKey || this.game.dailyKey();
+      const available = !!(L && L.available());
+      const name = L ? L.player().name : '';
+      this._lb = { dayKey: key, tab: 'today', pending: pendingEntry || null, top: null, champ: null };
+      const body = `
+        <div class="lb-tabs" role="tablist">
+          <button class="lb-tab active" id="lbTabToday" type="button" role="tab">今日榜</button>
+          <button class="lb-tab" id="lbTabChamp" type="button" role="tab">历史冠军</button>
+        </div>
+        <p class="lb-meta" id="lbMeta"></p>
+        <div class="leaderboard lb-content" id="lbContent"></div>
+        ${available ? `<div class="lb-name-row">
+          <input id="lbNameInput" class="lb-name-input" type="text" maxlength="16" placeholder="昵称（1-16 字）" value="${U.esc(name)}">
+          <button class="outline-button" id="lbNameSave" type="button">保存昵称</button>
+        </div>` : ''}
+        <p class="modal-sub lb-note" id="lbNote">${available
+          ? '昵称与成绩会提交到排行榜服务器；不提交也能正常玩。'
+          : '全球榜未配置服务器，当前仅显示本地成绩，单机玩法不受影响。'}</p>`;
+      this.openModal({
+        title: '每日挑战 · 全球榜',
+        icon: 'trophy',
+        wide: true,
+        body,
+        actions: [
+          { label: '刷新', cls: 'outline-button', onClick: () => { this._refreshLeaderboard(); return false; } },
+          { label: '关闭', cls: 'primary-button', close: true },
+        ],
+      });
+      $('lbTabToday').onclick = () => this._switchLbTab('today');
+      $('lbTabChamp').onclick = () => this._switchLbTab('champ');
+      if (!available) {
+        this._renderLbLocal();
+        return;
+      }
+      $('lbNameSave').onclick = () => {
+        const n = FX.Leaderboard.setName($('lbNameInput').value);
+        $('lbNameInput').value = n;
+        this.toast(n ? '昵称已保存' : '昵称不能为空', n ? 'ok' : 'warn');
+        if (n && this._lb && this._lb.pending) this._submitPendingLb();
+        else if (n) this._loadLbTop(true);
+      };
+      if (this._lb.pending && name) {
+        this._submitPendingLb();
+      } else if (this._lb.pending) {
+        $('lbNote').textContent = '设置昵称后即可把本局成绩提交到全球榜。';
+        this._loadLbTop();
+      } else if (name) {
+        FX.Leaderboard.flushPending(key).then(() => this._loadLbTop());
+      } else {
+        this._loadLbTop();
+      }
+    }
+
+    _switchLbTab(tab) {
+      if (!this._lb) return;
+      this._lb.tab = tab;
+      $('lbTabToday').classList.toggle('active', tab === 'today');
+      $('lbTabChamp').classList.toggle('active', tab === 'champ');
+      if (tab === 'champ') this._loadLbChampions();
+      else this._loadLbTop();
+    }
+
+    _refreshLeaderboard() {
+      if (!this._lb) return;
+      if (this._lb.tab === 'champ') this._loadLbChampions(true);
+      else this._loadLbTop(true);
+    }
+
+    _lbAlive() {
+      return !!(this._lb && $('lbContent'));
+    }
+
+    _lbLoading(text) {
+      $('lbContent').innerHTML = `<div class="empty-state"><strong>${text || '正在加载…'}</strong><span>连接排行榜服务器</span></div>`;
+    }
+
+    _loadLbTop(force) {
+      const L = FX.Leaderboard;
+      if (!this._lbAlive()) return;
+      if (!L || !L.available()) { this._renderLbLocal(); return; }
+      if (this._lb.top && !force) { this._renderLbTop(this._lb.top); return; }
+      $('lbMeta').textContent = `${this._lb.dayKey} · 北京时间`;
+      this._lbLoading();
+      L.top(this._lb.dayKey, 50, L.player().id).then((res) => {
+        if (!this._lbAlive() || this._lb.tab !== 'today') return;
+        this._lb.top = res;
+        this._renderLbTop(res);
+      });
+    }
+
+    _renderLbTop(res) {
+      if (!this._lbAlive()) return;
+      const rows = (res && res.rows) || [];
+      const total = res && res.total != null ? res.total : rows.length;
+      $('lbMeta').textContent = `${this._lb.dayKey} · 北京时间 · 共 ${total} 人${res && res.cached ? ' · 离线缓存' : ''}`;
+      if (!res || (!res.ok && !res.cached)) {
+        $('lbContent').innerHTML = `<div class="empty-state"><strong>全球榜暂不可用</strong><span>${res && res.offline ? '网络不可用' : '服务器没有响应'}，本地成绩不受影响。</span></div>` + this._localRowsHtml();
+        return;
+      }
+      if (!rows.length) {
+        $('lbContent').innerHTML = '<div class="empty-state"><strong>今天还没有人上榜。</strong><span>完成一局挑战，成为第一个。</span></div>';
+        return;
+      }
+      const me = res.me || null;
+      const myRank = me && me.rank;
+      $('lbContent').innerHTML =
+        '<div class="ldr-head"><span>今日榜</span><span>得分</span></div>' +
+        rows.map((r, i) => {
+          const rank = r.rank || i + 1;
+          const ret = Number.isFinite(Number(r.equity)) ? (Number(r.equity) / 10000 - 1) * 100 : null;
+          const meta = [
+            ret != null ? `收益 ${ret >= 0 ? '+' : ''}${ret.toFixed(1)}%` : null,
+            r.dd != null ? `回撤 ${Number(r.dd).toFixed(1)}%` : null,
+            r.trades != null ? `${r.trades} 笔` : null,
+            r.hits != null ? `命中 ${r.hits}` : null,
+          ].filter(Boolean).join(' · ');
+          return `<div class="ldr-row lb-row${myRank && rank === myRank ? ' me' : ''}">` +
+            `<span class="ldr-rank">${rank}</span>` +
+            `<span class="ldr-name">${U.esc(r.name)}<small>${meta}</small></span>` +
+            `<span class="ldr-score num">${r.score}</span></div>`;
+        }).join('') +
+        (me ? `<p class="modal-sub lb-me">我的最佳：${me.score} 分${me.rank ? ` · 第 ${me.rank} 名` : ''}</p>` : '');
+    }
+
+    _localRowsHtml() {
+      const rows = (this.game.challengeMeta().rows || []).slice(0, 5);
+      return rows.length
+        ? '<div class="ldr-head"><span>本地榜</span><span>得分</span></div>' + rows.map((r, i) =>
+          `<div class="ldr-row${r.name === '我' ? ' me' : ''}"><span class="ldr-rank">${i + 1}</span><span class="ldr-name">${U.esc(r.name)}</span><span class="ldr-score num">${r.score}</span></div>`).join('')
+        : '';
+    }
+
+    _renderLbLocal() {
+      if (!this._lbAlive()) return;
+      $('lbMeta').textContent = `${this.game.dailyKey()} · 本地榜`;
+      $('lbContent').innerHTML = this._localRowsHtml()
+        || '<div class="empty-state"><strong>今天还没有成绩。</strong><span>完成一局后，成绩会记录在这里。</span></div>';
+    }
+
+    _loadLbChampions(force) {
+      const L = FX.Leaderboard;
+      if (!this._lbAlive()) return;
+      if (!L || !L.available()) {
+        $('lbMeta').textContent = '历史冠军';
+        $('lbContent').innerHTML = '<div class="empty-state"><strong>全球榜未启用</strong><span>配置服务器后可查看历史冠军。</span></div>';
+        return;
+      }
+      if (this._lb.champ && !force) { this._renderLbChampions(this._lb.champ); return; }
+      $('lbMeta').textContent = '近 30 天 · 北京时间';
+      this._lbLoading();
+      L.champions(30).then((res) => {
+        if (!this._lbAlive() || this._lb.tab !== 'champ') return;
+        this._lb.champ = res;
+        this._renderLbChampions(res);
+      });
+    }
+
+    _renderLbChampions(res) {
+      if (!this._lbAlive()) return;
+      const rows = (res && res.rows) || [];
+      $('lbMeta').textContent = `近 30 天每日冠军${res && res.cached ? ' · 离线缓存' : ''}`;
+      if (!res || (!res.ok && !res.cached)) {
+        $('lbContent').innerHTML = `<div class="empty-state"><strong>历史冠军暂不可用</strong><span>${res && res.offline ? '网络不可用' : '服务器没有响应'}。</span></div>`;
+        return;
+      }
+      $('lbContent').innerHTML = rows.length
+        ? '<div class="ldr-head"><span>日期</span><span>冠军 / 得分</span></div>' + rows.map((r) =>
+          `<div class="ldr-row lb-row"><span class="ldr-rank">${U.esc(String(r.dayKey || '').slice(5))}</span><span class="ldr-name">${U.esc(r.name)}</span><span class="ldr-score num">${r.score}</span></div>`).join('')
+        : '<div class="empty-state"><strong>还没有历史冠军。</strong><span>完成今天的挑战后，冠军会记录在这里。</span></div>';
+    }
+
+    _submitPendingLb() {
+      if (!this._lbAlive() || !this._lb.pending) return;
+      const L = FX.Leaderboard;
+      const entry = this._lb.pending;
+      if (!L.player().name) {
+        $('lbNote').textContent = '请先设置昵称。';
+        return;
+      }
+      // 先清掉待提交，避免重复点击；失败时再放回
+      this._lb.pending = null;
+      this._lb.top = null;
+      $('lbNote').textContent = '正在提交成绩…';
+      L.submit(this._lb.dayKey, entry).then((res) => {
+        if (!this._lbAlive()) return;
+        if (res.ok) {
+          $('lbNote').textContent = `已提交：${this._lb.dayKey} · 全球第 ${res.rank} 名（${res.best} 分）`;
+        } else {
+          this._lb.pending = entry;
+          $('lbNote').textContent = res.needName ? '请先设置昵称。' : '提交失败，成绩已保存在本地，稍后可重试。';
+        }
+        this._loadLbTop(true);
+      });
+    }
+
     // ---------- 结算 ----------
     showSettle(data) {
       const g = this.game;
@@ -1326,10 +1560,19 @@
           <div class="settle-line"><span>成交笔数</span><strong class="num">${data.trades}</strong></div>
           <div class="settle-line big"><span>评分</span><strong class="num">${data.score}</strong></div>
           <p class="modal-sub">铜 400 / 银 800 / 金 1200。今日最佳：${data.best ? data.best.score : '—'}。</p>`;
-        actions.innerHTML = `<button class="outline-button" id="settleBoard" type="button">查看榜单</button><button class="primary-button" id="settleClose" type="button">关闭</button>`;
+        const lb = FX.Leaderboard;
+        if (lb && lb.available() && data.score > 0 && data.trades > 0) {
+          bodyHtml += `<p class="modal-sub" id="settleLbNote">${lb.player().name
+            ? '正在提交到全球榜…'
+            : '设置昵称后可在全球榜提交成绩。'}</p>`;
+        }
+        actions.innerHTML = `<button class="outline-button" id="settleBoard" type="button">查看榜单</button><button class="outline-button" id="settleGlobal" type="button">全球榜</button><button class="primary-button" id="settleClose" type="button">关闭</button>`;
         setTimeout(() => {
+          const entry = this._challengeEntry(data);
           $('settleBoard').onclick = () => { this.closeModalById('settleModal'); this.openChallengeModal(); };
+          $('settleGlobal').onclick = () => { this.closeModalById('settleModal'); this.openLeaderboardModal(data.dayKey, entry); };
           $('settleClose').onclick = () => this.closeModalById('settleModal');
+          this._autoSubmitChallenge(data, entry);
         }, 0);
       } else {
         title = '历史回放 · 结算';

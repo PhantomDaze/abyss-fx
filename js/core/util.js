@@ -34,6 +34,13 @@
     return v.toFixed(digits);
   };
 
+  /** HTML 转义：昵称等外部文本插入 innerHTML 前必须经过这里 */
+  U.esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  };
+
   U.pct = function (v, digits = 2) {
     if (!isFinite(v)) return '—';
     return (v > 0 ? '+' : '') + v.toFixed(digits) + '%';
@@ -60,6 +67,12 @@
   /** 日期 → YYYY-MM-DD（UTC 时区，行情内部统一用这个） */
   U.dateUTC = function (d) {
     return new Date(d).toISOString().slice(0, 10);
+  };
+
+  /** 日期 → YYYY-MM-DD（北京时间 UTC+8；每日挑战统一按这个切日） */
+  U.dateKeyCST = function (d) {
+    const t = d instanceof Date ? d.getTime() : Number(d) || Date.now();
+    return new Date(t + 8 * 3600 * 1000).toISOString().slice(0, 10);
   };
 
   /** YYYY-MM-DD → 本地 Date（避免 UTC 偏移） */

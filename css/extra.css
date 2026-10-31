@@ -177,3 +177,44 @@ select:disabled { opacity: .5; cursor: not-allowed; }
 /* 结算/统计里的涨跌色曾被 .settle-line strong 等覆盖 */
 .settle-line strong.up, .stats-hero strong.up, .stat-cell strong.up { color: var(--mkt-up); }
 .settle-line strong.down, .stats-hero strong.down, .stat-cell strong.down { color: var(--mkt-down); }
+
+/* 每日挑战全球排行榜 */
+.lb-tabs { display: flex; gap: 8px; margin: 4px 0 10px; }
+.lb-tab {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-sunken);
+  color: var(--ink-2);
+  font: 600 12px var(--font-ui);
+  cursor: pointer;
+}
+.lb-tab:hover { border-color: var(--brass); color: var(--brass-strong); }
+.lb-tab.active { border-color: var(--brass); background: var(--brass-soft); color: var(--brass-strong); }
+.lb-meta { margin: 0 0 8px; color: var(--text-muted); font: 500 11px var(--font-mono); }
+.lb-content { max-height: min(50vh, 340px); }
+.lb-row .ldr-name small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-faint);
+  font: 400 10px var(--font-mono);
+}
+.lb-me { margin-top: 8px; }
+.lb-name-row { display: flex; gap: 8px; margin-top: 12px; }
+.lb-name-input {
+  flex: 1;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font: 500 13px var(--font-ui);
+  box-sizing: border-box;
+}
+.lb-name-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.lb-note { margin-top: 8px; }
+@media (max-width: 560px) {
+  .lb-name-row { flex-direction: column; }
+}
