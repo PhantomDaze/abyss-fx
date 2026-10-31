@@ -406,7 +406,8 @@
 
     // ---------- 每日挑战 ----------
     dailyKey() {
-      return U.dateISO(new Date());
+      // 固定按北京时间（UTC+8）切日，保证全球玩家在同一盘行情里竞争
+      return U.dateKeyCST(Date.now());
     }
 
     challengeMeta() {
@@ -442,8 +443,8 @@
       this.challenge = { dayKey: key, modifier: mod, dayCount: 0, startedAt: Date.now(), attempts: meta.attempts };
       meta.attempts--;
       U.store.set('daily-meta', meta);
-      // 连续参加
-      const yesterday = U.dateISO(U.addDays(new Date(), -1));
+      // 连续参加（按北京时间切日）
+      const yesterday = U.dateKeyCST(Date.now() - 86400000);
       if (this.profile.lastDaily !== key) {
         this.profile.dailyStreak = this.profile.lastDaily === yesterday ? (this.profile.dailyStreak || 0) + 1 : 1;
         this.profile.lastDaily = key;
@@ -561,6 +562,7 @@
       this.running = false;
       this.bus.emit('settle', {
         kind: 'challenge',
+        dayKey: this.challenge.dayKey,
         score, equity, retPct, dd, trades, hits: this.eventHits,
         modifier: mod, retire: !!retire,
         liquidated: this.account.stats.liquidations > 0,
