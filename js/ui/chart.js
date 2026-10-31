@@ -35,7 +35,9 @@
         throw new Error('FX.Chart 需要一个 canvas 元素');
       }
       this.canvas = canvas;
-      this.ctx = canvas.getContext('2d');
+      // willReadFrequently 让 Chromium 使用 CPU 画布，规避部分低端 GPU
+      // （如 Adreno 610）把 canvas 渲染成纯色块的问题
+      this.ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!this.ctx) throw new Error('FX.Chart 无法获取 2D 绘图上下文');
       if (!canvas.getAttribute('role')) canvas.setAttribute('role', 'img');
       this.wrap = canvas.parentElement;

@@ -8,6 +8,9 @@
    ========================================================================== */
 
 :root {
+  /* 页面自己管理明暗主题，声明 color-scheme 避免浏览器/系统强制反色 */
+  color-scheme: light;
+
   /* ---------- 字体 ---------- */
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto,
     "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
