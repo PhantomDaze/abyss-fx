@@ -73,6 +73,7 @@ js/core/pairs.js           货币对、pip/名义/保证金/隔夜利息换算
 js/core/market.js          合成市场（因子模型）与历史回放市场
 js/core/account.js         手数、点差、佣金、保证金、挂单、强平
 js/core/game.js            模式、时钟、挑战/战役、成就、存档
+js/core/saveio.js          存档导出/导入（JSON 备份、校验、覆盖恢复）
 js/data/history.js         ECB 历史数据（生成文件）
 js/data/scenarios.js       7 场经典战役剧本
 js/data/achievements.js    20 条成就
@@ -92,6 +93,7 @@ tools/build-exe.sh         Windows 单文件 exe 构建脚本
 - 模拟行情默认 1× ≈ 28.8 秒/游戏日，图表右上角可切换 0.25× / 0.5× / 1× / 2× / 4×。
 - 历史回放/战役：点击“下一交易日”或“自动播放”；日 K 由 ECB 收盘价 + 合成日内路径构成，事件日会触发盘中极值。
 - 每日挑战每天 3 次；同一天共用种子与词条，取最高分。
+- 设置 → 存档备份：可把全部进度导出为 `.json`（复制文本或保存文件），也可导入备份覆盖当前存档；导入前会二次确认。
 
 ## 已知边界
 

@@ -1590,6 +1590,13 @@ function normalizeAccount(a) {
 - 挑战 `dayKey` 用本地日期；市场种子与 `dayKey`/词条绑定，不用 UTC 日期，避免跨时区当天不一致。
 - 历史数据日期为字符串，按 `U.parseISO` 转本地日期仅用于显示；索引用字符串数组 `indexOf`。
 
+### 10.5 导出 / 导入
+
+- 导出格式：`{ magic:'abyss-fx-save', v:1, app:'abyss-fx', exportedAt, data:{ <去掉前缀的键>: <值> } }`。
+- 导出前先执行一次 `save()`，确保包含内存中的最新状态；导入校验 magic/版本/已知字段类型后，二次确认再覆盖全部前缀键并刷新。
+- 导入写入失败时回滚到导入前状态；`beforeunload` 自动保存通过 `_skipSave` 短路，避免覆盖刚导入的存档。
+- 浏览器用 `<a download>` / `<input type=file>`；Windows 壳走 `_saveText` 绑定；Android 壳走 `AbyssNative.saveText` 与 `pickText`。
+
 ---
 
 ## 11. 实现里程碑与验收标准
