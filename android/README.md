@@ -16,7 +16,7 @@ android/
 ## 构建
 
 ```bash
-cd /opt/DEV/web-services/kurumi
+# 在项目根目录执行
 bash tools/build-apk.sh
 # 输出 dist/abyss-fx-1.0.apk
 ```
