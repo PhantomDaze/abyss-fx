@@ -53,12 +53,8 @@
       this._dead = false;
       this._ro = null;
 
-      // 用于把 var(--xxx) 解析成真实颜色；canvas 不认 CSS 变量
-      this._probe = document.createElement('span');
-      this._probe.setAttribute('aria-hidden', 'true');
-      this._probe.style.cssText =
-        'position:absolute;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;visibility:hidden;pointer-events:none;';
-      (document.body || document.documentElement).appendChild(this._probe);
+      // 根元素的实时样式：用来读取 CSS 变量并展开 var() 引用
+      this._rootStyle = null;
 
       this._resolveVar = this._resolveVar.bind(this);
       this._syncSize = this._syncSize.bind(this);
@@ -132,8 +128,7 @@
       window.removeEventListener('resize', this._onWindowResize);
       window.removeEventListener('load', this._onWindowResize);
       this._unbindEvents();
-      if (this._probe && this._probe.parentNode) this._probe.parentNode.removeChild(this._probe);
-      this._probe = null;
+      this._rootStyle = null;
       this.canvas.style.cursor = this._prevCursor || '';
       this.model = null;
       this.hover = null;
@@ -309,28 +304,49 @@
 
     /* ---------- 主题配色 ---------- */
 
+    // 读取根元素上的 CSS 变量（自定义属性的计算值里 var() 已被替换）
+    _rootVar(name) {
+      if (!this._rootStyle) this._rootStyle = getComputedStyle(document.documentElement);
+      const v = this._rootStyle.getPropertyValue(name);
+      return v ? v.trim() : '';
+    }
+
+    // 展开 var(--x) 引用链，得到 canvas 能直接用的颜色字符串。
+    // 注意：不要用“隐藏探针元素 + getComputedStyle 回读颜色”的写法——
+    // 部分安卓内核（OPPO A32 上的 Edge/WebView 实测）不会在回读时刷新样式，
+    // 一轮取色全部拿到上一次设置的值（--chart-order），整块画布会变成纯色。
     _resolveVar(raw) {
-      if (!this._probe) return raw;
-      // 把变量值当作 color 设置到探针上，让浏览器完成 var() 解析
-      this._probe.style.color = '';
-      this._probe.style.color = raw;
-      const c = getComputedStyle(this._probe).color;
-      return c && c !== 'rgba(0, 0, 0, 0)' ? c : raw;
+      let v = String(raw == null ? '' : raw).trim();
+      for (let guard = 0; guard < 8; guard++) {
+        const m = /^var\(\s*(--[A-Za-z0-9_-]+)\s*(?:,\s*([\s\S]+))?\)$/.exec(v);
+        if (!m) break;
+        const next = this._rootVar(m[1]);
+        if (next) {
+          v = next;
+          continue;
+        }
+        const fb = (m[2] || '').trim();
+        if (!fb) break;
+        v = fb;
+      }
+      return v;
     }
 
     _theme() {
-      const cs = getComputedStyle(document.documentElement);
       const pick = (names, fallback) => {
         for (let i = 0; i < names.length; i++) {
-          const raw = cs.getPropertyValue(names[i]).trim();
-          if (raw) return this._resolveVar(raw);
+          const raw = this._rootVar(names[i]);
+          if (raw) {
+            const c = this._resolveVar(raw);
+            if (c) return c;
+          }
         }
         return fallback;
       };
 
-      let mono = cs.getPropertyValue('--font-mono').trim();
+      let mono = this._rootVar('--font-mono');
       if (!mono || mono.indexOf('var(') >= 0) mono = DEFAULT_FONT_MONO;
-      let ui = cs.getPropertyValue('--font-ui').trim();
+      let ui = this._rootVar('--font-ui');
       if (!ui || ui.indexOf('var(') >= 0) ui = DEFAULT_FONT_UI;
 
       return {
