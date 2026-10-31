@@ -41,6 +41,8 @@
       this.selectedPair = 'EURUSD';
       this.tf = '15m';
       this.speed = this.settings.speed || 1;
+      // 小数倍速的步进累加器（0.25× 时每 4 轮走 1 步）
+      this._speedAcc = 0;
       this.autoPlay = false;
       this.account = null;
       this.market = null;
@@ -104,6 +106,8 @@
       this.settings[key] = value;
       U.store.set('settings', this.settings);
       this.applySettings();
+      // 切倍速时清掉累加器，避免旧的余数带进新速度
+      if (key === 'speed') this._speedAcc = 0;
       if (this.market) {
         if (key === 'news') this.market.newsEnabled = !!value;
         if (key === 'freq') this.market.newsFreq = value;
@@ -114,15 +118,19 @@
     _loop() {
       if (!this.running) return;
       if (this.mode === 'sim' || this.mode === 'challenge') {
-        const steps = this.speed;
-        for (let i = 0; i < steps; i++) {
+        // 速度可以是小数（0.25× / 0.5×）：累加后按整数步执行，余数留到下一轮
+        this._speedAcc += this.speed;
+        let ran = 0;
+        while (this._speedAcc >= 1) {
+          this._speedAcc -= 1;
           this._simStep();
+          ran++;
           if (this.mode === 'challenge' && this.market && this.market.isFinished()) {
             this.finishChallenge(false);
             break;
           }
         }
-        this.bus.emit('tick');
+        if (ran > 0) this.bus.emit('tick');
       }
     }
 
@@ -202,6 +210,7 @@
         this._lastSwapKey = saved.lastSwapKey || (this.market.now.getUTCHours() >= 21 ? U.dateUTC(this.market.now) : '');
       }
       this.speed = this.settings.speed || 1;
+      this._speedAcc = 0;
       this.account.update(this.market.quotes, this.market.now.getTime());
     }
 
