@@ -46,6 +46,7 @@
       this._prevPrices = {};
       this._modalStack = [];
       this.tutIndex = 0;
+      this._kurumiTimer = null;
     }
 
     init() {
@@ -79,6 +80,7 @@
         clearTimeout(this._nfTimer);
         $('newsFloat').classList.add('hidden');
         $('toast').innerHTML = '';
+        this.hideKurumi();
         this.render();
         this.syncModeUI();
       });
@@ -939,6 +941,56 @@
         this.closeModalById('challengeModal');
         this.openLeaderboardModal();
       };
+      // 久留美彩蛋：常驻头像 + 点击弹出浮卡并播放语音
+      if ($('kurumiBtn')) {
+        $('kurumiBtn').onclick = () => this.showKurumi();
+        $('kurumiFloatClose').onclick = () => this.hideKurumi();
+        $('kurumiReplay').onclick = () => {
+          if (FX.Audio) FX.Audio.playVoice('assets/kurumi.mp3');
+          this._armKurumiTimer();
+        };
+        // 图片走图床：首次用户手势后再加载，保持启动零网络请求
+        const warm = () => this.loadKurumiImage();
+        window.addEventListener('pointerdown', warm, { once: true, passive: true });
+        window.addEventListener('keydown', warm, { once: true });
+      }
+    }
+
+    // ---------- 久留美彩蛋 ----------
+    loadKurumiImage() {
+      [$('kurumiAvatarImg'), $('kurumiImg')].forEach((img) => {
+        if (!img || img.getAttribute('src')) return;
+        const src = img.dataset.src;
+        if (!src) return;
+        const host = img.closest('.kurumi-avatar, .kurumi-float');
+        img.addEventListener('load', () => { if (host) host.classList.add('has-img'); }, { once: true });
+        img.addEventListener('error', () => { if (host) host.classList.add('img-error'); }, { once: true });
+        img.src = src;
+      });
+    }
+
+    showKurumi() {
+      const card = $('kurumiFloat');
+      if (!card) return;
+      this.loadKurumiImage();
+      card.classList.remove('hidden');
+      if ($('kurumiBtn')) $('kurumiBtn').setAttribute('aria-expanded', 'true');
+      if (FX.Audio) FX.Audio.playVoice('assets/kurumi.mp3');
+      this._armKurumiTimer();
+    }
+
+    hideKurumi() {
+      clearTimeout(this._kurumiTimer);
+      this._kurumiTimer = null;
+      const card = $('kurumiFloat');
+      if (card) card.classList.add('hidden');
+      if ($('kurumiBtn')) $('kurumiBtn').setAttribute('aria-expanded', 'false');
+      if (FX.Audio) FX.Audio.stopVoice();
+    }
+
+    _armKurumiTimer() {
+      clearTimeout(this._kurumiTimer);
+      this._kurumiTimer = setTimeout(() => this.hideKurumi(), 5500);
     }
 
     applySettingsUI() {
@@ -1024,6 +1076,9 @@
           return;
         }
       }
+      // 没有弹窗时，Esc 关闭久留美浮卡
+      const k = $('kurumiFloat');
+      if (k && !k.classList.contains('hidden')) this.hideKurumi();
     }
 
     showModalById(id) {

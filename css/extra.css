@@ -218,3 +218,126 @@ select:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 560px) {
   .lb-name-row { flex-direction: column; }
 }
+
+/* --------------------------------------------------------------------------
+   久留美彩蛋：图表角落头像 + 浮动卡片
+   -------------------------------------------------------------------------- */
+.kurumi-avatar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, .82);
+  border-radius: 50%;
+  background: linear-gradient(140deg, #F2A7BB 0%, #D45C7D 55%, #8E3555 100%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .38);
+  cursor: pointer;
+  transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+}
+.kurumi-avatar:hover {
+  transform: scale(1.08) rotate(-3deg);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
+.kurumi-avatar:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.kurumi-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 42%;
+}
+.kurumi-avatar-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #FFF;
+  font: 700 15px/1 var(--font-ui);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+}
+.kurumi-avatar.has-img .kurumi-avatar-fallback { display: none; }
+.kurumi-avatar.img-error img { display: none; }
+
+/* 模式角标左移，给头像让位 */
+.chart-wrap .chart-badge { right: 54px; }
+
+.kurumi-float {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 61; /* 高于新闻浮卡 60：用户主动打开时优先显示 */
+  width: min(360px, calc(100vw - 32px));
+  overflow: hidden;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-float);
+  animation: toast-in var(--dur-2) var(--ease-out) both;
+}
+.kurumi-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(150deg, #D96A86, #7A2F4A);
+}
+.kurumi-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.kurumi-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 16px;
+  color: #FFF;
+  background: linear-gradient(160deg, rgba(217, 106, 134, .95), rgba(90, 30, 55, .98));
+}
+.kurumi-fallback b { font-size: 15px; letter-spacing: .08em; }
+.kurumi-fallback em { font-size: 12px; font-style: normal; opacity: .92; }
+.kurumi-float.has-img .kurumi-fallback { display: none; }
+.kurumi-float.img-error img { display: none; }
+.kurumi-float .modal-x {
+  top: 8px;
+  right: 8px;
+  background: rgba(15, 20, 22, .45);
+  color: #FFF;
+  backdrop-filter: blur(4px);
+}
+.kurumi-float .modal-x:hover { background: rgba(15, 20, 22, .72); color: #FFF; }
+.kurumi-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px 10px;
+}
+.kurumi-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.kurumi-tag::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #D45C7D;
+  box-shadow: 0 0 0 2px rgba(212, 92, 125, .18);
+}
+
+@media (max-width: 720px) {
+  .kurumi-avatar { top: 6px; right: 6px; width: 34px; height: 34px; }
+  .chart-wrap .chart-badge { right: 48px; }
+  .kurumi-float { right: 10px; bottom: 10px; left: 10px; width: auto; max-width: none; }
+}

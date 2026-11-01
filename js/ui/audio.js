@@ -29,6 +29,7 @@
     },
     setEnabled(v) {
       this.enabled = !!v;
+      if (!this.enabled) this.stopVoice();
       if (!this.enabled && this.ctx) {
         try {
           this.ctx.suspend();
@@ -126,14 +127,47 @@
     swap(positive) {
       this._tone(positive ? 700 : 500, 0.07, 'sine', 0, 0.04);
     },
+    // 久留美语音：用 HTMLAudioElement 播放本地 mp3。
+    // 不用 WebAudio decodeAudioData，是为了兼容直接双击 index.html 的 file:// 场景。
+    voiceVolume: 0.85,
+    _voice: null,
+    playVoice(src) {
+      if (!this.enabled) return false;
+      try {
+        if (!this._voice) {
+          this._voice = document.createElement('audio');
+          this._voice.preload = 'auto';
+        }
+        if (this._voice.getAttribute('src') !== src) this._voice.setAttribute('src', src);
+        this._voice.volume = this.voiceVolume;
+        this._voice.currentTime = 0;
+        const p = this._voice.play();
+        if (p && p.catch) p.catch(() => {});
+        return true;
+      } catch (_) {
+        return false;
+      }
+    },
+    stopVoice() {
+      if (!this._voice) return;
+      try {
+        this._voice.pause();
+        this._voice.currentTime = 0;
+      } catch (_) {}
+    },
   };
 
   // 页面隐藏时挂起音频
   document.addEventListener('visibilitychange', () => {
-    if (!Audio.ctx) return;
+    if (!Audio.ctx) {
+      if (document.hidden) Audio.stopVoice();
+      return;
+    }
     try {
-      if (document.hidden) Audio.ctx.suspend();
-      else if (Audio.enabled) Audio.ctx.resume();
+      if (document.hidden) {
+        Audio.ctx.suspend();
+        Audio.stopVoice();
+      } else if (Audio.enabled) Audio.ctx.resume();
     } catch (_) {}
   });
 

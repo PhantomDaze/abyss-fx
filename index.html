@@ -151,6 +151,10 @@
         <canvas id="chart" role="img" aria-label="价格走势图"></canvas>
         <div class="chart-empty hidden" id="chartEmpty"><span>还没有行情。</span></div>
         <div class="chart-badge" id="chartBadge">模拟</div>
+        <button class="kurumi-avatar" id="kurumiBtn" type="button" aria-label="久留美彩蛋" aria-expanded="false" title="久留美：老实赚钱，很枯燥吧">
+          <img id="kurumiAvatarImg" alt="" data-src="https://bee-reg-ab.imagency.cn/mr/202610/31/6ae5f830c22e8.png" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+          <span class="kurumi-avatar-fallback" aria-hidden="true">久</span>
+        </button>
       </div>
 
       <div class="news-ticker" id="newsTicker">
@@ -289,6 +293,19 @@
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- 久留美彩蛋浮卡（图片走图床，首次用户手势后才加载） -->
+<div id="kurumiFloat" class="kurumi-float hidden" role="dialog" aria-label="久留美：老实赚钱，很枯燥吧">
+  <button id="kurumiFloatClose" class="modal-x" type="button" aria-label="关闭"><svg class="ico"><use href="#i-close"/></svg></button>
+  <div class="kurumi-media">
+    <img id="kurumiImg" alt="久留美：老实赚钱，很枯燥吧" data-src="https://bee-reg-ab.imagency.cn/mr/202610/31/6ae5f830c22e8.png" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+    <div class="kurumi-fallback" aria-hidden="true"><b>久留美</b><em>「老实赚钱，很枯燥吧」</em></div>
+  </div>
+  <div class="kurumi-meta">
+    <span class="kurumi-tag">FX 战士久留美</span>
+    <button class="outline-button small" id="kurumiReplay" type="button">▶ 再听一次</button>
+  </div>
+</div>
 
 <!-- 通用弹窗 -->
 <div class="modal-backdrop hidden" id="modal" role="presentation">
