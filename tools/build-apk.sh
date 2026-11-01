@@ -18,7 +18,7 @@ mkdir -p android/assets/www android/build/classes android/build/dex dist
 
 # 只打包运行所需的前端文件
 cp index.html android/assets/www/
-cp -r css js android/assets/www/
+cp -r css js assets android/assets/www/
 
 echo "[1/6] 编译资源"
 "$BT/aapt2" compile --dir android/res -o android/build/res.zip
@@ -67,4 +67,4 @@ echo
 echo "APK: $OUT ($(du -h "$OUT" | cut -f1))"
 "$BT/aapt" dump badging "$OUT" | head -6
 "$BT/apksigner" verify --print-certs "$OUT" | head -3
-unzip -l "$OUT" | grep -E 'assets/www/(index.html|js/core/game.js|css/app.css)$'
+unzip -l "$OUT" | grep -E 'assets/www/(index.html|js/core/game.js|css/app.css|assets/kurumi.mp3)$'

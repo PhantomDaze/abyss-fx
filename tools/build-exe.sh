@@ -15,7 +15,7 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE" "$ROOT/dist"
 cp "$ROOT/desktop/main.go" "$ROOT/desktop/go.mod" "$ROOT/desktop/go.sum" "$STAGE/"
 cp "$ROOT/index.html" "$STAGE/"
-cp -r "$ROOT/css" "$ROOT/js" "$STAGE/"
+cp -r "$ROOT/css" "$ROOT/js" "$ROOT/assets" "$STAGE/"
 
 echo "[2/4] 生成图标与版本资源"
 rsvg-convert -w 256 -h 256 "$ROOT/desktop/icon.svg" -o "$STAGE/icon-256.png"

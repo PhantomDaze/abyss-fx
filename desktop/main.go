@@ -19,7 +19,7 @@ import (
 	webview2 "github.com/jchv/go-webview2"
 )
 
-//go:embed index.html css js
+//go:embed index.html css js assets
 var assets embed.FS
 
 const appName = "AbyssFX"
