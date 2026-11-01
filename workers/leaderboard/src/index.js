@@ -65,8 +65,9 @@ export function validateSubmission(body, dayKey, nowMs) {
   const name = cleanName(body.name);
   if (!name) return { error: '昵称不能为空' };
 
+  // 允许负分与 0 分（亏损、打平也是有效成绩），只限制整数与合理范围
   const score = Number(body.score);
-  if (!Number.isInteger(score) || score < 1 || score > 1000000) return { error: '分数无效' };
+  if (!Number.isInteger(score) || score < -1000000 || score > 1000000) return { error: '分数无效' };
 
   const equity = Number(body.equity);
   if (!Number.isFinite(equity) || equity < 0 || equity > 1e9) return { error: '权益无效' };

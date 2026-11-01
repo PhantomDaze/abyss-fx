@@ -52,6 +52,11 @@
     return /^\d{4}-\d{2}-\d{2}$/.test(String(k || ''));
   }
 
+  /** 只有离线/超时/5xx 值得重试；4xx 是校验错误，重试也不会成功 */
+  function isRetryable(res) {
+    return !!(res && (res.timeout || res.offline || (res.status >= 500)));
+  }
+
   const Leaderboard = {
     TIMEOUT_MS,
     apiBase: resolveBase(),
@@ -105,24 +110,29 @@
     submit(dayKey, entry) {
       if (!validDayKey(dayKey)) return Promise.resolve({ ok: false, error: '日期无效' });
       const p = this.player();
-      if (!p.name) return Promise.resolve({ ok: false, needName: true });
       const body = {
         playerId: p.id,
         name: p.name,
         score: Math.round(Number(entry.score) || 0),
-        equity: Number(entry.equity) || 0,
-        dd: Number(entry.dd) || 0,
+        // 服务端要求 equity >= 0、dd 在 0~100；爆仓时浮亏可能短暂越界，这里夹取
+        equity: Math.max(0, Number(entry.equity) || 0),
+        dd: Math.min(100, Math.max(0, Number(entry.dd) || 0)),
         trades: Math.round(Number(entry.trades) || 0),
         hits: Math.round(Number(entry.hits) || 0),
         modId: String(entry.modId || '').slice(0, 24),
         version: 1,
       };
+      // 首次没有昵称：先存入待提交队列，设置昵称后由 flushPending 补交
+      if (!p.name) {
+        this._queuePending(dayKey, body);
+        return Promise.resolve({ ok: false, needName: true, queued: true });
+      }
       return this._request('/api/daily/' + encodeURIComponent(dayKey) + '/scores', {
         method: 'POST',
         body,
       }).then((res) => {
         if (res.ok) this._dropPending(dayKey, body.score);
-        else this._queuePending(dayKey, body);
+        else if (isRetryable(res)) this._queuePending(dayKey, body);
         return res;
       });
     },
@@ -161,13 +171,19 @@
     flushPending(dayKey) {
       const all = this._pending();
       const keys = dayKey ? [dayKey] : Object.keys(all);
-      return keys.reduce((p, k) => p.then((acc) => {
+      const player = this.player();
+      // 没有昵称时无法提交，保留队列等待玩家设置昵称
+      if (!player.name) return Promise.resolve({ ok: false, needName: true, flushed: 0 });
+      return keys.reduce((chain, k) => chain.then((acc) => {
         const body = all[k];
         if (!body) return acc;
+        // 入队时可能还没有昵称，这里用当前昵称与玩家 ID 补全
+        const payload = Object.assign({}, body, { playerId: player.id, name: player.name });
         return this._request('/api/daily/' + encodeURIComponent(k) + '/scores', {
-          method: 'POST', body,
+          method: 'POST', body: payload,
         }).then((res) => {
-          if (res.ok) this._dropPending(k, body.score);
+          if (res.ok) this._dropPending(k, payload.score);
+          else if (!isRetryable(res)) this._dropPending(k, payload.score); // 永久错误，避免无限重试
           return { ok: acc.ok && res.ok, flushed: acc.flushed + (res.ok ? 1 : 0) };
         });
       }), Promise.resolve({ ok: true, flushed: 0 }));

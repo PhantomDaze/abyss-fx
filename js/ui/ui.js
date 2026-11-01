@@ -1346,21 +1346,23 @@
       };
     }
 
-    /** 已有昵称时自动提交；首次不提交，等玩家在榜单里设置昵称 */
+    /** 已有昵称时自动提交；无昵称则暂存到待提交队列，设置昵称后补交 */
     _autoSubmitChallenge(data, entry) {
       const L = FX.Leaderboard;
       if (!L || !L.available()) return;
-      if (!(entry.score > 0 && entry.trades > 0)) return;
-      if (!L.player().name) return;
+      // 负分与 0 分也算有效成绩，只要成交过就提交
+      if (!(Number.isFinite(Number(entry.score)) && entry.trades > 0)) return;
       L.submit(data.dayKey, entry).then((res) => {
         const note = $('settleLbNote');
         if (res.ok) {
           const msg = `全球榜：第 ${res.rank} 名（${res.best} 分）`;
           if (note) note.textContent = msg;
           this.toast('成绩已提交到全球榜', 'ok');
+        } else if (res.needName) {
+          if (note) note.textContent = '成绩已暂存，设置昵称后会自动补交到全球榜。';
         } else if (res.offline || res.timeout) {
           if (note) note.textContent = '全球榜暂不可用，成绩已保存在本地。';
-        } else if (!res.disabled && !res.needName) {
+        } else if (!res.disabled) {
           if (note) note.textContent = '全球榜提交失败，成绩已保存在本地，稍后可重试。';
           this.toast('排行榜提交失败，成绩已保存在本地。', 'warn');
         }
@@ -1407,8 +1409,13 @@
         const n = FX.Leaderboard.setName($('lbNameInput').value);
         $('lbNameInput').value = n;
         this.toast(n ? '昵称已保存' : '昵称不能为空', n ? 'ok' : 'warn');
-        if (n && this._lb && this._lb.pending) this._submitPendingLb();
-        else if (n) this._loadLbTop(true);
+        if (!n) return;
+        if (this._lb && this._lb.pending) {
+          this._submitPendingLb();
+        } else {
+          // 首次提交时可能还没昵称，成绩已在待提交队列里，设置昵称后补交
+          FX.Leaderboard.flushPending().then(() => this._loadLbTop(true));
+        }
       };
       if (this._lb.pending && name) {
         this._submitPendingLb();
@@ -1416,8 +1423,12 @@
         $('lbNote').textContent = '设置昵称后即可把本局成绩提交到全球榜。';
         this._loadLbTop();
       } else if (name) {
-        FX.Leaderboard.flushPending(key).then(() => this._loadLbTop());
+        FX.Leaderboard.flushPending().then(() => this._loadLbTop());
       } else {
+        const queued = FX.Leaderboard.pending();
+        if (queued && Object.keys(queued).length) {
+          $('lbNote').textContent = '有未提交的成绩，设置昵称后会自动补交。';
+        }
         this._loadLbTop();
       }
     }
@@ -1576,8 +1587,12 @@
         if (res.ok) {
           $('lbNote').textContent = `已提交：${this._lb.dayKey} · 全球第 ${res.rank} 名（${res.best} 分）`;
         } else {
-          this._lb.pending = entry;
-          $('lbNote').textContent = res.needName ? '请先设置昵称。' : '提交失败，成绩已保存在本地，稍后可重试。';
+          // 只有离线/超时/5xx 值得重试；4xx 是校验错误，重试也不会成功
+          const retryable = res.offline || res.timeout || (res.status >= 500);
+          if (retryable) this._lb.pending = entry;
+          $('lbNote').textContent = res.needName ? '请先设置昵称。'
+            : retryable ? '提交失败，成绩已保存在本地，稍后可重试。'
+              : `提交被拒绝：${res.error || '服务器不接受该成绩'}`;
         }
         this._loadLbTop(true);
       });
@@ -1635,10 +1650,10 @@
           <div class="settle-line big"><span>评分</span><strong class="num">${data.score}</strong></div>
           <p class="modal-sub">铜 400 / 银 800 / 金 1200。今日最佳：${data.best ? data.best.score : '—'}。</p>`;
         const lb = FX.Leaderboard;
-        if (lb && lb.available() && data.score > 0 && data.trades > 0) {
+        if (lb && lb.available() && Number.isFinite(Number(data.score)) && data.trades > 0) {
           bodyHtml += `<p class="modal-sub" id="settleLbNote">${lb.player().name
             ? '正在提交到全球榜…'
-            : '设置昵称后可在全球榜提交成绩。'}</p>`;
+            : '成绩已暂存，设置昵称后会自动补交到全球榜。'}</p>`;
         }
         actions.innerHTML = `<button class="outline-button" id="settleBoard" type="button">查看榜单</button><button class="outline-button" id="settleGlobal" type="button">全球榜</button><button class="primary-button" id="settleClose" type="button">关闭</button>`;
         setTimeout(() => {
