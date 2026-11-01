@@ -224,7 +224,7 @@ ignoreNetworkErrors = true;
 await page.click('#modeTabs .mode-tab[data-mode="challenge"]');
 await page.waitForTimeout(300);
 await page.click('#chGlobal');
-await page.waitForTimeout(600);
+await page.waitForTimeout(2500);
 const offlineText = await page.locator('#lbContent').textContent();
 log('offline text', offlineText.slice(0, 40));
 if (!offlineText.includes('暂不可用')) throw new Error('离线降级提示缺失');

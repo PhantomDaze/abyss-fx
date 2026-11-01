@@ -1395,13 +1395,27 @@
       if (!this._lbAlive()) return;
       if (!L || !L.available()) { this._renderLbLocal(); return; }
       if (this._lb.top && !force) { this._renderLbTop(this._lb.top); return; }
-      $('lbMeta').textContent = `${this._lb.dayKey} · 北京时间`;
-      this._lbLoading();
+      // 有缓存先显示，避免网络慢时一直停在“加载中”
+      const cached = !force ? L.cachedTop(this._lb.dayKey) : null;
+      if (cached) {
+        this._renderLbTop(Object.assign({}, cached, { ok: true, cached: true, offline: true }));
+      } else {
+        $('lbMeta').textContent = `${this._lb.dayKey} · 北京时间`;
+        this._lbLoading();
+      }
       L.top(this._lb.dayKey, 50, L.player().id).then((res) => {
         if (!this._lbAlive() || this._lb.tab !== 'today') return;
         this._lb.top = res;
         this._renderLbTop(res);
       });
+    }
+
+    _lbErrorText(res) {
+      if (!res) return '服务器没有响应';
+      if (res.timeout) return '请求超时';
+      if (res.offline) return '网络不可用';
+      if (res.status) return `服务器返回 ${res.status}`;
+      return '服务器没有响应';
     }
 
     _renderLbTop(res) {
@@ -1410,7 +1424,7 @@
       const total = res && res.total != null ? res.total : rows.length;
       $('lbMeta').textContent = `${this._lb.dayKey} · 北京时间 · 共 ${total} 人${res && res.cached ? ' · 离线缓存' : ''}`;
       if (!res || (!res.ok && !res.cached)) {
-        $('lbContent').innerHTML = `<div class="empty-state"><strong>全球榜暂不可用</strong><span>${res && res.offline ? '网络不可用' : '服务器没有响应'}，本地成绩不受影响。</span></div>` + this._localRowsHtml();
+        $('lbContent').innerHTML = `<div class="empty-state"><strong>全球榜暂不可用</strong><span>${this._lbErrorText(res)}，本地成绩不受影响。</span></div>` + this._localRowsHtml();
         return;
       }
       if (!rows.length) {
@@ -1462,8 +1476,13 @@
         return;
       }
       if (this._lb.champ && !force) { this._renderLbChampions(this._lb.champ); return; }
-      $('lbMeta').textContent = '近 30 天 · 北京时间';
-      this._lbLoading();
+      const cached = !force ? L.cachedChampions() : null;
+      if (cached) {
+        this._renderLbChampions({ ok: true, cached: true, offline: true, rows: cached });
+      } else {
+        $('lbMeta').textContent = '近 30 天 · 北京时间';
+        this._lbLoading();
+      }
       L.champions(30).then((res) => {
         if (!this._lbAlive() || this._lb.tab !== 'champ') return;
         this._lb.champ = res;
@@ -1476,7 +1495,7 @@
       const rows = (res && res.rows) || [];
       $('lbMeta').textContent = `近 30 天每日冠军${res && res.cached ? ' · 离线缓存' : ''}`;
       if (!res || (!res.ok && !res.cached)) {
-        $('lbContent').innerHTML = `<div class="empty-state"><strong>历史冠军暂不可用</strong><span>${res && res.offline ? '网络不可用' : '服务器没有响应'}。</span></div>`;
+        $('lbContent').innerHTML = `<div class="empty-state"><strong>历史冠军暂不可用</strong><span>${this._lbErrorText(res)}。</span></div>`;
         return;
       }
       $('lbContent').innerHTML = rows.length

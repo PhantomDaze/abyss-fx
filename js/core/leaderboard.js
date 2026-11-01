@@ -10,7 +10,8 @@
   // 部署 Worker 后把地址填在这里，例如 https://abyss-fx-leaderboard.example.workers.dev
   // 留空则全球榜功能关闭，游戏保持完全离线。
   const DEFAULT_API = 'https://fxdb.coishi.top';
-  const TIMEOUT_MS = 4000;
+  const TIMEOUT_MS = 10000;
+  const RETRY_DELAY_MS = 700;
   const PLAYER_KEY = 'player';
   const PENDING_KEY = 'leaderboard-pending';
   const CACHE_KEY = 'leaderboard-cache';
@@ -59,6 +60,13 @@
     configure(base) {
       this.apiBase = normalizeBase(base);
       U.store.set('leaderboardApi', this.apiBase);
+      return this.apiBase;
+    },
+
+    /** 清除本地覆盖，恢复内置 DEFAULT_API（排查旧地址时用） */
+    reset() {
+      U.store.remove('leaderboardApi');
+      this.apiBase = normalizeBase(DEFAULT_API);
       return this.apiBase;
     },
 
@@ -172,8 +180,13 @@
 
     // ---------- 网络 ----------
     _request(path, opts = {}) {
-      if (!this.apiBase) return Promise.resolve({ ok: false, disabled: true });
-      if (!this.online()) return Promise.resolve({ ok: false, offline: true });
+      const retries = opts.retries != null ? opts.retries : 1;
+      return this._attempt(path, opts, retries);
+    },
+
+    async _attempt(path, opts, retriesLeft) {
+      if (!this.apiBase) return { ok: false, disabled: true };
+      if (!this.online()) return { ok: false, offline: true };
       const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
       const timer = ctrl ? setTimeout(() => ctrl.abort(), TIMEOUT_MS) : null;
       const init = {
@@ -186,26 +199,38 @@
         init.body = JSON.stringify(opts.body);
       }
       if (ctrl) init.signal = ctrl.signal;
-      return fetch(this.apiBase + path, init)
-        .then((res) => res.json().catch(() => ({})).then((data) => {
-          if (!res.ok) {
-            return { ok: false, status: res.status, error: (data && data.error) || ('HTTP ' + res.status) };
-          }
-          return Object.assign({ ok: true }, data || {});
-        }))
-        .catch((err) => ({
+
+      let res;
+      try {
+        const r = await fetch(this.apiBase + path, init);
+        let data = {};
+        try { data = await r.json(); } catch (_) {}
+        if (!r.ok) {
+          res = { ok: false, status: r.status, error: (data && data.error) || ('HTTP ' + r.status) };
+        } else {
+          res = Object.assign({ ok: true }, data || {});
+        }
+      } catch (err) {
+        res = {
           ok: false,
           offline: true,
           timeout: !!(err && err.name === 'AbortError'),
           error: err && err.message ? err.message : String(err),
-        }))
-        .then((res) => {
-          if (timer) clearTimeout(timer);
-          return res;
-        }, (err) => {
-          if (timer) clearTimeout(timer);
-          return { ok: false, offline: true, error: String(err) };
-        });
+        };
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+      if (ctrl && ctrl.signal.aborted) {
+        res = { ok: false, offline: true, timeout: true, error: '请求超时' };
+      }
+
+      // 网络失败、超时、5xx 自动重试一次；4xx 是校验错误，不重试
+      const retryable = res.timeout || res.offline || (res.status >= 500);
+      if (retryable && retriesLeft > 0 && this.online()) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        return this._attempt(path, opts, retriesLeft - 1);
+      }
+      return res;
     },
 
     // ---------- 待提交队列 ----------
@@ -255,6 +280,15 @@
     _cachedTop(dayKey) {
       const c = this._cache();
       return (c.top && c.top[dayKey]) || null;
+    },
+
+    /** 供 UI 先展示缓存，再后台刷新 */
+    cachedTop(dayKey) {
+      return this._cachedTop(dayKey);
+    },
+
+    cachedChampions() {
+      return this._cachedChampions();
     },
 
     _cacheChampions(rows) {
