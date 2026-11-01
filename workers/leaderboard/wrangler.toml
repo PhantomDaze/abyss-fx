@@ -5,4 +5,4 @@ compatibility_date = "2026-10-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "abyss-fx-leaderboard"
-database_id = "REPLACE_WITH_DATABASE_ID"
+database_id = "297c5b72-505c-4378-a673-c4deb44da69a"

@@ -9,7 +9,7 @@
 
   // 部署 Worker 后把地址填在这里，例如 https://abyss-fx-leaderboard.example.workers.dev
   // 留空则全球榜功能关闭，游戏保持完全离线。
-  const DEFAULT_API = '';
+  const DEFAULT_API = 'https://abyss-fx-leaderboard.phantomc261.workers.dev';
   const TIMEOUT_MS = 4000;
   const PLAYER_KEY = 'player';
   const PENDING_KEY = 'leaderboard-pending';
