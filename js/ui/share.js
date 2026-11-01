@@ -214,7 +214,12 @@
       // 页脚
       ctx.font = '500 16px system-ui, sans-serif';
       ctx.fillStyle = P.sub;
-      ctx.fillText('模拟交易 · 仅供娱乐 · 不构成投资建议', W / 2, 1372);
+      ctx.fillText('模拟交易 · 仅供娱乐 · 不构成投资建议', W / 2, 1368);
+
+      // 游戏网址
+      ctx.font = '600 20px ui-monospace, monospace';
+      ctx.fillStyle = P.brass;
+      ctx.fillText('https://fx.coishi.top', W / 2, 1404);
       ctx.textAlign = 'left';
 
       return canvas;
