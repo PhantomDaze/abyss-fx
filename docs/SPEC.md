@@ -33,7 +33,8 @@
 
 ### 1.1 运行形态
 
-- 纯静态：`index.html` + CSS + 普通 `<script>`，无构建、无打包、无 ES module、默认无运行时网络请求。
+- 纯静态：`index.html` + CSS + 普通 `<script>`；开发时无构建、无打包、无 ES module、默认无运行时网络请求。
+- 生产部署可用 `npm run build:web` 把 CSS/JS 合并到 `dist/web`（首屏 3 个请求）；源码根目录仍可直接打开用于开发。
 - 每日挑战全球排行榜是可选增强：未配置 `js/core/leaderboard.js` 的 `DEFAULT_API` 时完全离线；配置后只在用户结算/看榜时请求，失败自动降级，不影响单机。
 - 可直接 `file://` 打开，也可 `python3 -m http.server` 运行。
 - 不加载任何 CDN、外部字体、外部图片、外部音频。字体使用系统字体栈；图标使用内联 SVG；favicon 使用内联 SVG data URI。

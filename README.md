@@ -27,6 +27,52 @@ python3 -m http.server 8080
 # 打开 http://localhost:8080
 ```
 
+## Web 部署（Cloudflare Pages / GitHub Pages）
+
+源码和实际发布的文件是分开的。发布前运行：
+
+```bash
+npm run build:web
+```
+
+会生成 `dist/web/`，只包含运行时需要的文件：
+
+```
+dist/web/index.html          页面骨架（已改为引用 bundle）
+dist/web/css/app.bundle.css  合并后的样式
+dist/web/js/app.bundle.js    合并后的脚本
+dist/web/_headers            Cloudflare Pages 缓存头
+dist/web/.nojekyll           GitHub Pages 兼容文件
+```
+
+首屏只有 **3 个请求**（HTML + 1 个 CSS + 1 个 JS），源文件仍保留在根目录的 `index.html`、`css/`、`js/`，`dist/` 已被 `.gitignore` 忽略。
+
+### Cloudflare Pages（推荐）
+
+仓库已和 Cloudflare Pages 绑定，在 Pages 项目设置里填：
+
+| 设置项 | 值 |
+|---|---|
+| 构建命令（Build command） | `npm run build:web` |
+| 输出目录（Build output directory） | `dist/web` |
+| 根目录（Root directory） | `/`（默认） |
+
+之后推送到 `main` 即自动构建发布。`_headers` 会让带 `?v=` 的静态资源强缓存，HTML 每次校验更新。
+
+### GitHub Pages
+
+仓库包含 `.github/workflows/deploy-pages.yml`，推送 `main` 后自动构建 `dist/web` 并发布。首次使用需要在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**（如果仍是 “Deploy from a branch”，请切换；否则仍会发布未合并的源码根目录）。
+
+本地预览构建产物：
+
+```bash
+npm run build:web
+python3 -m http.server 8099 --directory dist/web
+# 打开 http://127.0.0.1:8099/
+```
+
+> 开发时仍可直接打开根目录的 `index.html`；它引用的是未合并的源码文件，便于调试。
+
 ## Windows 单文件 exe
 
 项目自带一个 Go + WebView2 桌面壳，可打包成单个 exe（前端资源全部内嵌）：
@@ -96,6 +142,8 @@ js/ui/share.js             Canvas 分享卡
 js/main.js                 启动
 desktop/main.go            Windows 桌面壳（Go + WebView2）
 tools/build-exe.sh         Windows 单文件 exe 构建脚本
+tools/build-web.mjs        Web 发布构建：合并 CSS/JS 到 dist/web
+.github/workflows/deploy-pages.yml  GitHub Pages 自动构建发布
 workers/leaderboard/       Cloudflare Worker + D1 全球排行榜后端（可选）
 ```
 
