@@ -1451,6 +1451,7 @@ rng = mulberry32(seed)
 - 成就解锁 640ms 铜色扫光 + 火漆章 `scale(.9→1.04→1)`，无彩带。
 - `prefers-reduced-motion: reduce` 下所有动画 0.01ms，跑马灯停，倒计时不动画。
 - **音效 P1 不做**。P0 不加载音频、不创建 AudioContext。若 P1 补，使用 WebAudio 合成，默认音量 30%，页面隐藏 suspend。
+- **久留美彩蛋（2026-11）**：图表角落头像点击后按需播放本地 `assets/kurumi.mp3`（`HTMLAudioElement`，不额外创建 AudioContext），受「音效」开关控制；剧照图片走图床，首次用户手势后才加载，失败时回退为文字卡片。
 
 ### 8.7 交互、键盘、无障碍
 
