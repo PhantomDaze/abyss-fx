@@ -112,7 +112,11 @@ test('校验拒绝非法输入', () => {
   assert.equal(validateSubmission(submission(), TODAY, Date.now()).value.name, '测试玩家');
   assert.equal(validateSubmission(submission({ playerId: 'x' }), TODAY, Date.now()).error, 'playerId 无效');
   assert.equal(validateSubmission(submission({ name: '   ' }), TODAY, Date.now()).error, '昵称不能为空');
-  assert.equal(validateSubmission(submission({ score: 0 }), TODAY, Date.now()).error, '分数无效');
+  // 0 分与负分现在是有效成绩
+  assert.equal(validateSubmission(submission({ score: 0 }), TODAY, Date.now()).value.score, 0);
+  assert.equal(validateSubmission(submission({ score: -320 }), TODAY, Date.now()).value.score, -320);
+  assert.equal(validateSubmission(submission({ score: -1000001 }), TODAY, Date.now()).error, '分数无效');
+  assert.equal(validateSubmission(submission({ score: 1.5 }), TODAY, Date.now()).error, '分数无效');
   assert.equal(validateSubmission(submission({ trades: 0 }), TODAY, Date.now()).error, '成交笔数无效');
   assert.equal(validateSubmission(submission({ dd: 101 }), TODAY, Date.now()).error, '回撤无效');
   assert.equal(validateSubmission(submission({ modId: '' }), TODAY, Date.now()).error, '词条无效');
@@ -159,6 +163,22 @@ test('提交、只保留最高分、排序与我的名次', async () => {
   assert.equal(r.body.total, 2);
   assert.deepEqual(r.body.rows.map((x) => x.score), [900, 800]);
   assert.deepEqual(r.body.me, { score: 900, rank: 1 });
+});
+
+test('负分与 0 分也能上榜并按分数排序', async () => {
+  const db = new FakeD1();
+  await call(db, '/api/daily/' + TODAY + '/scores', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(submission({ playerId: 'player_neg_1', name: '负分甲', score: -200 })),
+  });
+  await call(db, '/api/daily/' + TODAY + '/scores', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(submission({ playerId: 'player_zero_1', name: '零分乙', score: 0 })),
+  });
+  const r = await call(db, '/api/daily/' + TODAY + '/scores?limit=50');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.total, 2);
+  assert.deepEqual(r.body.rows.map((x) => x.score), [0, -200]);
 });
 
 test('历史冠军取每天最高分', async () => {

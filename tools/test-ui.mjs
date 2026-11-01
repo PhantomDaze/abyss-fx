@@ -206,7 +206,7 @@ const submitted = lbRequests.filter((r) => r.method === 'POST');
 log('leaderboard submits', submitted.length);
 if (!submitted.length) throw new Error('结算后没有提交成绩');
 const payload = JSON.parse(submitted[submitted.length - 1].body);
-if (!payload.playerId || payload.name !== '测试昵称' || !(payload.score > 0)) throw new Error('提交内容异常');
+if (!payload.playerId || payload.name !== '测试昵称' || !Number.isFinite(payload.score)) throw new Error('提交内容异常');
 await shot('09c-settle-global');
 await page.click('#settleGlobal');
 await page.waitForTimeout(400);
