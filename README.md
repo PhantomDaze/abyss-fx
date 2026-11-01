@@ -101,13 +101,14 @@ adb install -r dist/abyss-fx-1.0.apk
 
 ## 每日挑战全球排行榜（可选）
 
-默认**完全关闭**：`js/core/leaderboard.js` 里的 `DEFAULT_API` 为空，游戏保持零网络请求、可离线运行。部署后端后才会启用。
+默认指向已部署的线上 Worker（`js/core/leaderboard.js` 的 `DEFAULT_API`）。网络失败、未配置或离线时自动降级为本地榜，不影响单机玩法。
 
 - 后端在 `workers/leaderboard/`（Cloudflare Workers + D1），部署步骤见该目录的 `README.md`。
 - 部署后把 Worker 地址填进 `js/core/leaderboard.js` 的 `DEFAULT_API`，或运行时执行 `FX.Leaderboard.configure('https://...')`。
 - 启用后：每日挑战结算页可把成绩提交到全球榜，查看今日前 50 与近 30 天每日冠军。
 - 网络失败、超时、服务器不可达、未配置时，自动降级为本地榜，不弹错误、不影响单机玩法；启动时不发起任何请求。
-- 首次提交前需要设置昵称；昵称与成绩会提交到排行榜服务器，不提交也能正常玩。
+- 首次提交前需要设置昵称；未设置昵称时成绩先暂存在本地，设置后自动补交。昵称与成绩会提交到排行榜服务器，不提交也能正常玩。
+- 负分与 0 分也算有效成绩，按分数从高到低排序（负分排在正分之后）。
 - 每日挑战按**北京时间（UTC+8）**切日，全球玩家在同一盘行情里竞争；每天 00:00（北京时间）重置次数与榜单。
 - 排行榜请求超时 10 秒，网络失败/超时/5xx 会自动重试一次；有缓存时先显示缓存，再后台刷新。
 - 如果一直提示不可用：先直接打开 `https://fxdb.coishi.top/api/health`；再在控制台执行 `FX.Leaderboard.apiBase` 检查地址。若 localStorage 里留有旧地址，执行 `FX.Leaderboard.reset()` 后刷新页面。
