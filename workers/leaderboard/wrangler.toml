@@ -2,6 +2,11 @@ name = "abyss-fx-leaderboard"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 
+# 自定义域：workers.dev 在部分地区不可达，排行榜走这个域名
+routes = [
+  { pattern = "fxdb.coishi.top", custom_domain = true }
+]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "abyss-fx-leaderboard"
