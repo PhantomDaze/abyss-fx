@@ -8,10 +8,12 @@ Cloudflare Workers + D1 的极简排行榜后端。前端在 `js/core/leaderboar
 |---|---|---|
 | `GET` | `/api/daily/:dayKey/scores?limit=50&playerId=...` | 今日榜；`playerId` 可选，用于返回自己的名次 |
 | `POST` | `/api/daily/:dayKey/scores` | 提交成绩；同一 `playerId` 每天只保留最高分 |
-| `GET` | `/api/daily/champions?limit=30` | 近 N 天每日冠军 |
+| `GET` | `/api/daily/champions?days=30` | 近 N 个自然日（含今天）每日冠军；`limit` 参数保留兼容 |
 | `GET` | `/api/health` | 健康检查 |
 
 `dayKey` 使用**北京时间（UTC+8）**日期，服务端只接受「今天」或「昨天」，允许跨零点后结算。
+
+`/api/daily/champions` 的 `days`（旧客户端用 `limit`）按**自然日数**解释：返回从今天往前 N 天内的每日冠军，不会把更早的记录混进来；没有成绩的日期由前端补成“暂无记录”。
 
 提交体：
 
@@ -56,6 +58,8 @@ FX.Leaderboard.configure('https://abyss-fx-leaderboard.<account>.workers.dev')
 
 （该地址会写入 localStorage，仅对当前浏览器生效。）
 
+> 修改了 `champions` 的自然日窗口或任何 Worker 逻辑后，需要重新执行 `npx wrangler deploy` 才会在线上生效；前端的历史冠军列表会自行补足最近 30 天日期，但更早的冠军数据仍要由新 Worker 返回。
+
 ## 本地开发
 
 ```bash
@@ -73,7 +77,7 @@ cd workers/leaderboard
 npm test        # node --test test/worker.test.mjs
 ```
 
-测试使用内存假 D1，覆盖字段校验、最高分保留、排序、名次与冠军聚合，不需要真实 Cloudflare 环境。
+测试使用内存假 D1，覆盖字段校验、最高分保留、排序、名次与冠军自然日窗口聚合，不需要真实 Cloudflare 环境。
 
 ## 说明与边界
 

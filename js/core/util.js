@@ -57,6 +57,12 @@
     return (Math.round(v * Math.pow(10, digits)) / Math.pow(10, digits)).toFixed(digits) + ' 点';
   };
 
+  /** 千分比：+5.0‰ / -2.5‰；signed=false 时不显示正号 */
+  U.permille = function (v, digits = 1, signed = true) {
+    if (!isFinite(v)) return '—';
+    return (signed && v > 0 ? '+' : '') + v.toFixed(digits) + '‰';
+  };
+
   U.pad2 = (n) => String(n).padStart(2, '0');
 
   /** 日期 → YYYY-MM-DD（本地时区） */

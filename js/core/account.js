@@ -91,26 +91,116 @@
       return { balance: this.balance, floating, equity, used, free, marginLevel: level, marginState: state, debt: this.debt };
     }
 
-    /** 账户整体距强平的点数（按当前持仓净点值估算） */
-    liquidationDistance() {
-      if (!this.positions.length) return null;
-      const m = this.metrics();
-      if (!isFinite(m.marginLevel)) return null;
-      let perPip = 0;
-      for (const p of this.positions) {
-        perPip += p.side * FX.pipValueUSD(p.pairId, p.lots, this.quotes);
+    /**
+     * 账户强平信息：假设只有指定货币对在动，其余报价保持不变，求权益
+     * 跌到强平线（保证金水平 50%）时的价格。多笔持仓（含反向锁仓）会
+     * 按净敞口一并计算；不同货币对的持仓则保持当前价。
+     * 返回 { price, distancePips, direction }；没有该对净敞口或价格不可能触及时返回 null。
+     */
+    liquidationInfo(pairId) {
+      if (!pairId || !this.quotes || !this.positions.length) return null;
+      const q = this.quotes[pairId];
+      const p = this._p(pairId);
+      if (!q || !p) return null;
+      let netLots = 0;
+      for (const pos of this.positions) {
+        if (pos.pairId === pairId) netLots += pos.side * pos.lots;
       }
-      if (Math.abs(perPip) < 1e-9) return null;
-      const buffer = m.equity - STOP_OUT * m.used;
-      // 只看距离，方向由持仓本身决定
-      return buffer / Math.abs(perPip);
+      if (Math.abs(netLots) < 1e-9) return null;
+      const m = this.metrics();
+      if (!isFinite(m.equity) || !(m.used > 0) || !isFinite(m.marginLevel)) return null;
+      const target = STOP_OUT * m.used;
+      const halfSpread = q.spreadPips * p.pip / 2;
+      const balance = this.balance;
+      const equityAt = (x) => {
+        // 只改当前货币对的中间价，买卖价按当前点差对称展开
+        const qs = Object.assign({}, this.quotes, {
+          [pairId]: { ...q, mid: x, bid: x - halfSpread, ask: x + halfSpread },
+        });
+        let floating = 0;
+        for (const pos of this.positions) floating += this.posPnl(pos, qs);
+        return balance + floating;
+      };
+      const f = (x) => equityAt(x) - target;
+      const current = q.mid;
+      if (f(current) <= 0) return { price: current, distancePips: 0, direction: 0 };
+      let lo;
+      let hi;
+      if (netLots > 0) {
+        // 多单：价格下跌触发强平。以当前价为上界向下对半扩张，直到跨过 50%
+        hi = current;
+        lo = current;
+        let guard = 0;
+        while (f(lo) > 0 && guard++ < 80) lo *= 0.5;
+        if (!(f(lo) <= 0)) return null; // 跌到近零也爆不了仓，或报价换算已溢出
+      } else {
+        // 空单：价格上涨触发强平。以当前价为下界向上扩张，直到跨过 50%
+        lo = current;
+        hi = current * 2;
+        let guard = 0;
+        while (f(hi) > 0 && guard++ < 80) hi *= 2;
+        if (!(f(hi) <= 0)) return null;
+      }
+      for (let i = 0; i < 80; i++) {
+        const mid = (lo + hi) / 2;
+        const fm = f(mid);
+        if (!isFinite(fm)) break;
+        if (netLots > 0) {
+          if (fm > 0) hi = mid; else lo = mid;
+        } else {
+          if (fm > 0) lo = mid; else hi = mid;
+        }
+      }
+      const price = (lo + hi) / 2;
+      if (!(price > 0) || !isFinite(price)) return null;
+      return {
+        price,
+        distancePips: Math.abs(price - current) / p.pip,
+        direction: price < current ? -1 : price > current ? 1 : 0,
+      };
     }
 
-    /** 预览订单：保证金、手续费、点值、强平距离、止损亏损 */
-    preview({ pairId, side, lots, slPips, leverage }) {
+    /** 指定货币对的强平价格；未传 pairId 时取当前最接近强平的持仓货币对 */
+    liquidationPrice(pairId) {
+      if (pairId) {
+        const info = this.liquidationInfo(pairId);
+        return info ? info.price : null;
+      }
+      let best = null;
+      const seen = new Set();
+      for (const pos of this.positions) {
+        if (seen.has(pos.pairId)) continue;
+        seen.add(pos.pairId);
+        const info = this.liquidationInfo(pos.pairId);
+        if (info && (!best || info.distancePips < best.distancePips)) best = info;
+      }
+      return best ? best.price : null;
+    }
+
+    /** 账户整体距强平的点数（取各持仓货币对中最近的一条估算线） */
+    liquidationDistance(pairId) {
+      if (pairId) {
+        const info = this.liquidationInfo(pairId);
+        return info ? info.distancePips : null;
+      }
+      let best = null;
+      const seen = new Set();
+      for (const pos of this.positions) {
+        if (seen.has(pos.pairId)) continue;
+        seen.add(pos.pairId);
+        const info = this.liquidationInfo(pos.pairId);
+        if (info && (best == null || info.distancePips < best)) best = info.distancePips;
+      }
+      return best;
+    }
+
+    /** 预览订单：保证金、手续费、点值、强平距离、止损/止盈换算 */
+    preview({ pairId, side, lots, slPermille, tpPermille, anchor, leverage }) {
       const q = this.quotes[pairId];
+      const p = this._p(pairId);
       const lev = leverage || this.leverage;
       const entry = side > 0 ? q.ask : q.bid;
+      const base = anchor > 0 ? anchor : entry;
       const margin = FX.marginUSD(pairId, lots, this.quotes, lev);
       const commission = this.commission(lots);
       const pipVal = this.pipValue(pairId, lots);
@@ -120,31 +210,55 @@
       const afterUsed = m.used + margin;
       const buffer = afterEquity - STOP_OUT * afterUsed;
       const dist = pipVal > 0 ? buffer / pipVal : null;
-      const p = this._p(pairId);
       const liqPrice = dist != null ? entry - side * dist * p.pip : null;
-      const slLoss = slPips > 0 ? slPips * pipVal : null;
-      return { entry, margin, commission, pipVal, liqPrice, liqPips: dist, slLoss, spreadPips: q.spreadPips, spreadCost: q.spreadPips * pipVal };
+      const slPips = slPermille > 0 ? (base * slPermille / 1000) / p.pip : 0;
+      const tpPips = tpPermille > 0 ? (base * tpPermille / 1000) / p.pip : 0;
+      return {
+        entry, base, margin, commission, pipVal, liqPrice, liqPips: dist,
+        slPips, tpPips,
+        slLoss: slPips > 0 ? slPips * pipVal : null,
+        tpProfit: tpPips > 0 ? tpPips * pipVal : null,
+        minPips: Math.max(2, q.spreadPips * 2),
+        minPermille: FX.permille.minStop(base, p, q),
+        spreadPips: q.spreadPips,
+        spreadCost: q.spreadPips * pipVal,
+      };
     }
 
     // ---------- 开仓 ----------
-    openMarket({ pairId, side, lots, sl, tp, trailPips, tag, now }) {
+    openMarket({ pairId, side, lots, sl, tp, slPermille, tpPermille, trailPips, trailPermille, tag, now }) {
       if (this.tradingFrozen) return { ok: false, error: '账户已暂停交易' };
       if (this.halted) return { ok: false, error: '账户已穿仓，请重置后继续' };
       const p = this._p(pairId);
       if (!p) return { ok: false, error: '未知货币对' };
-      if (!this.quotes[pairId]) return { ok: false, error: '该货币对暂不可交易' };
+      const q = this.quotes[pairId];
+      if (!q) return { ok: false, error: '该货币对暂不可交易' };
       lots = Math.round(U.clamp(lots, 0.01, this.maxLots) * 100) / 100;
+      if (!(lots >= 0.01)) return { ok: false, error: '手数至少 0.01' };
+      if (this.positions.length >= this.maxPositions) return { ok: false, error: '持仓数量已达上限' };
+      const entry = side > 0 ? q.ask : q.bid;
+      // 千分比优先：以实际成交价为基准，保证挂单成交滑点后仍是同一比例
+      if (slPermille > 0) sl = FX.permille.stopPrice(entry, side, slPermille);
+      if (tpPermille > 0) tp = FX.permille.targetPrice(entry, side, tpPermille);
+      if (trailPermille > 0) trailPips = (entry * trailPermille / 1000) / p.pip;
       trailPips = Math.max(0, U.num(trailPips, 0));
+      if (sl != null && (!Number.isFinite(sl) || sl <= 0)) return { ok: false, error: '止损价无效' };
+      if (tp != null && (!Number.isFinite(tp) || tp <= 0)) return { ok: false, error: '止盈价无效' };
       if (sl != null && (side > 0 ? sl >= entry : sl <= entry)) {
         return { ok: false, error: side > 0 ? '多单止损需低于开仓价' : '空单止损需高于开仓价' };
       }
       if (tp != null && (side > 0 ? tp <= entry : tp >= entry)) {
         return { ok: false, error: side > 0 ? '多单止盈需高于开仓价' : '空单止盈需低于开仓价' };
       }
-      if (!(lots >= 0.01)) return { ok: false, error: '手数至少 0.01' };
-      if (this.positions.length >= this.maxPositions) return { ok: false, error: '持仓数量已达上限' };
-      const q = this.quotes[pairId];
-      const entry = side > 0 ? q.ask : q.bid;
+      const minDist = Math.max(2, q.spreadPips * 2) * p.pip;
+      if (sl != null && Math.abs(entry - sl) < minDist) {
+        const minPm = (minDist / entry * 1000).toFixed(2);
+        return { ok: false, error: `止损离开仓价太近：至少 ${Math.max(2, q.spreadPips * 2).toFixed(1)} 点（约 ${minPm}‰）` };
+      }
+      if (tp != null && Math.abs(entry - tp) < minDist) {
+        const minPm = (minDist / entry * 1000).toFixed(2);
+        return { ok: false, error: `止盈离开仓价太近：至少 ${Math.max(2, q.spreadPips * 2).toFixed(1)} 点（约 ${minPm}‰）` };
+      }
       const margin = FX.marginUSD(pairId, lots, this.quotes, this.leverage);
       const commission = this.commission(lots);
       const m = this.metrics();
@@ -171,17 +285,33 @@
     }
 
     // ---------- 挂单 ----------
-    placeOrder({ pairId, side, lots, type, price, sl, tp, trailPips, expiryDays, now }) {
+    placeOrder({ pairId, side, lots, type, price, sl, tp, slPermille, tpPermille, trailPips, trailPermille, expiryDays, now }) {
       if (this.tradingFrozen || this.halted) return { ok: false, error: '账户暂不可交易' };
       const q = this.quotes[pairId];
       if (!q) return { ok: false, error: '该货币对暂不可交易' };
+      const p = this._p(pairId);
       lots = Math.round(U.clamp(lots, 0.01, this.maxLots) * 100) / 100;
+      if (!(lots >= 0.01)) return { ok: false, error: '手数至少 0.01' };
+      if (slPermille > 0) sl = FX.permille.stopPrice(price, side, slPermille);
+      if (tpPermille > 0) tp = FX.permille.targetPrice(price, side, tpPermille);
+      if (trailPermille > 0) trailPips = (price * trailPermille / 1000) / p.pip;
       trailPips = Math.max(0, U.num(trailPips, 0));
+      if (sl != null && (!Number.isFinite(sl) || sl <= 0)) return { ok: false, error: '止损价无效' };
+      if (tp != null && (!Number.isFinite(tp) || tp <= 0)) return { ok: false, error: '止盈价无效' };
       if (sl != null && (side > 0 ? sl >= price : sl <= price)) {
         return { ok: false, error: side > 0 ? '多单止损需低于触发价' : '空单止损需高于触发价' };
       }
       if (tp != null && (side > 0 ? tp <= price : tp >= price)) {
         return { ok: false, error: side > 0 ? '多单止盈需高于触发价' : '空单止盈需低于触发价' };
+      }
+      const minDist = Math.max(2, q.spreadPips * 2) * p.pip;
+      if (sl != null && Math.abs(price - sl) < minDist) {
+        const minPm = (minDist / price * 1000).toFixed(2);
+        return { ok: false, error: `止损离触发价太近：至少 ${Math.max(2, q.spreadPips * 2).toFixed(1)} 点（约 ${minPm}‰）` };
+      }
+      if (tp != null && Math.abs(price - tp) < minDist) {
+        const minPm = (minDist / price * 1000).toFixed(2);
+        return { ok: false, error: `止盈离触发价太近：至少 ${Math.max(2, q.spreadPips * 2).toFixed(1)} 点（约 ${minPm}‰）` };
       }
       if (type === 'limit') {
         if (side > 0 && price >= q.ask) return { ok: false, error: '买入限价需低于当前卖价' };
@@ -194,6 +324,9 @@
         id: 'o' + this.seq++,
         pairId, side, lots: round2(lots), type: type || 'limit',
         price, sl: sl || null, tp: tp || null, trailPips: trailPips || 0,
+        slPermille: slPermille > 0 ? slPermille : 0,
+        tpPermille: tpPermille > 0 ? tpPermille : 0,
+        trailPermille: trailPermille > 0 ? trailPermille : 0,
         placedAt: now || this.now || 0,
         expiresAt: expiryDays ? (now || this.now || 0) + expiryDays * 86400000 : 0,
         status: 'working',
@@ -340,7 +473,10 @@
         if (o.lastRejectAt && (this.now || 0) - o.lastRejectAt < 60000) continue;
         const res = this.openMarket({
           pairId: o.pairId, side: o.side, lots: o.lots,
-          sl: o.sl, tp: o.tp, trailPips: o.trailPips, tag: o.type,
+          sl: o.sl, tp: o.tp,
+          slPermille: o.slPermille, tpPermille: o.tpPermille,
+          trailPips: o.trailPips, trailPermille: o.trailPermille,
+          tag: o.type,
         });
         if (!res.ok) {
           o.lastRejectAt = this.now || 0;

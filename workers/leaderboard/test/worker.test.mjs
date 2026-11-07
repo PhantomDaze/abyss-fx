@@ -60,9 +60,10 @@ class FakeD1 {
           return { results: rows };
         }
         if (/ROW_NUMBER\(\) OVER/.test(sql)) {
-          const [limit] = args;
+          const [fromDay, toDay, limit] = args;
           const best = new Map();
           for (const r of db.rows.values()) {
+            if (r.dayKey < fromDay || r.dayKey > toDay) continue;
             const cur = best.get(r.dayKey);
             if (!cur || r.score > cur.score || (r.score === cur.score && r.updatedAt < cur.updatedAt)) {
               best.set(r.dayKey, r);
@@ -198,10 +199,47 @@ test('历史冠军取每天最高分', async () => {
 
   const r = await call(db, '/api/daily/champions?limit=30');
   assert.equal(r.status, 200);
+  assert.equal(r.body.days, 30);
+  assert.equal(r.body.toDay, TODAY);
   assert.deepEqual(r.body.rows, [
     { dayKey: TODAY, name: '今天冠军', score: 1000 },
     { dayKey: YESTERDAY, name: '昨天冠军', score: 700 },
   ]);
+});
+
+test('历史冠军按最近 N 个自然日过滤，不混入更早记录', async () => {
+  const db = new FakeD1();
+  const OLD = dayKeyCST(Date.now() - 40 * 86400000);
+  db.rows.set(OLD + '|player_old', {
+    dayKey: OLD, playerId: 'player_old', name: '更早冠军', score: 9999,
+    equity: 20000, dd: 1, trades: 10, hits: 2, modId: 'trend',
+    createdAt: 1, updatedAt: 1,
+  });
+  await call(db, '/api/daily/' + TODAY + '/scores', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(submission({ playerId: 'player_today_x', name: '今天冠军', score: 800 })),
+  });
+
+  let r = await call(db, '/api/daily/champions?days=30');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.days, 30);
+  assert.equal(r.body.fromDay, dayKeyCST(Date.now() - 29 * 86400000));
+  assert.deepEqual(r.body.rows, [{ dayKey: TODAY, name: '今天冠军', score: 800 }]);
+
+  // limit 兼容旧客户端，但仍按“天数”解释
+  r = await call(db, '/api/daily/champions?limit=30');
+  assert.equal(r.body.days, 30);
+  assert.equal(r.body.rows.length, 1);
+
+  // 只取最近 1 天时也应排除昨天和更早
+  await call(db, '/api/daily/' + YESTERDAY + '/scores', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(submission({ playerId: 'player_yesterday_x', name: '昨天冠军', score: 900 })),
+  });
+  r = await call(db, '/api/daily/champions?days=1');
+  assert.equal(r.body.days, 1);
+  assert.equal(r.body.fromDay, TODAY);
+  assert.deepEqual(r.body.rows, [{ dayKey: TODAY, name: '今天冠军', score: 800 }]);
 });
 
 test('CORS 与错误响应', async () => {

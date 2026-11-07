@@ -64,6 +64,35 @@
     return FX.notionalUSD(pairId, lots, quotes) / leverage;
   };
 
+  /**
+   * 千分比（‰）与价格互转。
+   * 例：EUR/USD 1.11300 的 5‰ = 价格变动 0.005565（约 55.7 点）。
+   * 止损/止盈输入使用正数表示“距离”，仓位展示使用有符号收益率（负=亏损）。
+   */
+  FX.permille = {
+    /** 止损价：多单在下方，空单在上方 */
+    stopPrice(base, side, permille) {
+      return base * (1 - side * permille / 1000);
+    },
+    /** 止盈价：多单在上方，空单在下方 */
+    targetPrice(base, side, permille) {
+      return base * (1 + side * permille / 1000);
+    },
+    /** 由有符号收益率（负=亏损）反推价格 */
+    priceAtReturn(base, side, signed) {
+      return base * (1 + side * signed / 1000);
+    },
+    /** 价格相对基准价的有符号收益率（‰）：多单上涨为正，空单下跌为正 */
+    signedReturn(base, price, side) {
+      return side * (price / base - 1) * 1000;
+    },
+    /** 当前点差/最小止损距离折算成的最小千分比 */
+    minStop(base, pair, quote) {
+      const minPips = Math.max(2, (quote && quote.spreadPips ? quote.spreadPips : 0) * 2);
+      return (minPips * pair.pip / base) * 1000;
+    },
+  };
+
   /** 每夜隔夜利息（USD），周三按三倍计；正数=收取，负数=支付 */
   FX.swapPerNightUSD = function (pairId, lots, quotes, weekday, nights, side) {
     const p = FX.PAIR_MAP[pairId];

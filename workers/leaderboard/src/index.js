@@ -2,7 +2,7 @@
    接口：
      GET  /api/daily/:dayKey/scores?limit=50&playerId=...
      POST /api/daily/:dayKey/scores
-     GET  /api/daily/champions?limit=30
+     GET  /api/daily/champions?days=30（兼容 limit=30）
    只做基础校验；分数由客户端上报，休闲榜不保证防伪造。
 */
 const CST_OFFSET = 8 * 3600 * 1000;
@@ -169,15 +169,19 @@ async function submitScore(request, env, dayKey) {
 }
 
 async function champions(url, env) {
-  const limit = clampInt(url.searchParams.get('limit'), 1, 90, 30);
+  // days=最近 N 个自然日（含今天）；limit 保留兼容旧客户端
+  const days = clampInt(url.searchParams.get('days') || url.searchParams.get('limit'), 1, 90, 30);
+  const now = Date.now();
+  const toDay = dayKeyCST(now);
+  const fromDay = dayKeyCST(now - (days - 1) * 86400000);
   const { results } = await env.DB.prepare(
     'SELECT day_key AS dayKey, name, score FROM (' +
     '  SELECT day_key, name, score, ' +
     '         ROW_NUMBER() OVER (PARTITION BY day_key ORDER BY score DESC, updated_at ASC) AS rn ' +
-    '  FROM scores' +
+    '  FROM scores WHERE day_key >= ? AND day_key <= ?' +
     ') WHERE rn = 1 ORDER BY day_key DESC LIMIT ?'
-  ).bind(limit).all();
-  return json({ rows: results || [] });
+  ).bind(fromDay, toDay, days).all();
+  return json({ days, fromDay, toDay, rows: results || [] });
 }
 
 export default {

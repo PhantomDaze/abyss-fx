@@ -583,9 +583,9 @@
         return;
       }
       const lots = U.num(params.lots, 0.1);
-      const slPips = U.num(params.slPips, 0);
-      const tpPips = U.num(params.tpPips, 0);
-      const trail = U.num(params.trailPips, 0);
+      const slPermille = U.num(params.slPermille, 0);
+      const tpPermille = U.num(params.tpPermille, 0);
+      const trailPermille = U.num(params.trailPermille, 0);
       const entry = side > 0 ? q.ask : q.bid;
       // 追高检测
       const bars = this.market.series(pairId, this.tf).bars;
@@ -612,19 +612,21 @@
           if (side < 0 && price >= q.bid) { price = q.bid - off; corrected = true; }
         }
         if (corrected) this.toast('挂单价已放到现价一侧：' + U.price(price, p.digits), 'info');
-        // 止损/止盈以最终触发价锚定，自动修正后也不会错位
+        // 止损/止盈以最终触发价锚定；成交时再按实际成交价重算一次比例
         res = this.account.placeOrder({
           pairId, side, lots, type: params.orderType, price,
-          sl: slPips > 0 ? price - side * slPips * p.pip : null,
-          tp: tpPips > 0 ? price + side * tpPips * p.pip : null,
-          trailPips: trail, expiryDays: 7, now: this.market.now.getTime(),
+          sl: slPermille > 0 ? FX.permille.stopPrice(price, side, slPermille) : null,
+          tp: tpPermille > 0 ? FX.permille.targetPrice(price, side, tpPermille) : null,
+          slPermille, tpPermille, trailPermille,
+          expiryDays: 7, now: this.market.now.getTime(),
         });
       } else {
         res = this.account.openMarket({
           pairId, side, lots,
-          sl: slPips > 0 ? entry - side * slPips * p.pip : null,
-          tp: tpPips > 0 ? entry + side * tpPips * p.pip : null,
-          trailPips: trail, now: this.market.now.getTime(),
+          sl: slPermille > 0 ? FX.permille.stopPrice(entry, side, slPermille) : null,
+          tp: tpPermille > 0 ? FX.permille.targetPrice(entry, side, tpPermille) : null,
+          slPermille, tpPermille, trailPermille,
+          now: this.market.now.getTime(),
         });
       }
       if (!res.ok) {

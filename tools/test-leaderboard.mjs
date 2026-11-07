@@ -104,3 +104,33 @@ test('flushPending 遇到永久 4xx 会丢弃队列，避免无限重试', async
   assert.equal(res.flushed, 0);
   assert.equal(L.pending(DAY), null);
 });
+
+test('历史冠军请求最近 30 个自然日，失败时回退缓存', async () => {
+  let fail = false;
+  const calls = [];
+  const { L } = boot({
+    fetchImpl: async (url) => {
+      calls.push(url);
+      if (fail) return { ok: false, status: 400, async json() { return { error: 'x' }; } };
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { ok: true, days: 30, rows: [{ dayKey: '2026-10-30', name: '昨天冠军', score: 700 }] };
+        },
+      };
+    },
+  });
+  const res = await L.champions(30);
+  assert.equal(res.ok, true);
+  assert.equal(res.days, 30);
+  assert.match(calls[0], /\/api\/daily\/champions\?days=30&limit=30$/);
+  assert.equal(res.rows[0].name, '昨天冠军');
+
+  fail = true;
+  const cached = await L.champions(30);
+  assert.equal(cached.ok, false);
+  assert.equal(cached.cached, true);
+  assert.equal(cached.days, 30);
+  assert.equal(cached.rows[0].name, '昨天冠军');
+});

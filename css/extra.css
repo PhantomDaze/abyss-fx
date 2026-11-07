@@ -201,6 +201,8 @@ select:disabled { opacity: .5; cursor: not-allowed; }
   font: 400 10px var(--font-mono);
 }
 .lb-me { margin-top: 8px; }
+.lb-row.empty { opacity: .55; }
+.lb-row.empty .ldr-name { color: var(--text-faint); }
 .lb-name-row { display: flex; gap: 8px; margin-top: 12px; }
 .lb-name-input {
   flex: 1;

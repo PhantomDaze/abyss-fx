@@ -154,15 +154,17 @@
         });
     },
 
-    /** 近 N 天每日冠军 */
+    /** 近 N 个自然日的每日冠军（含今天） */
     champions(limit) {
-      return this._request('/api/daily/champions?limit=' + (limit || 30)).then((res) => {
+      const days = Math.min(90, Math.max(1, Math.floor(Number(limit) || 30)));
+      // days 是新参数；limit 仅为兼容尚未更新的旧 Worker
+      return this._request('/api/daily/champions?days=' + days + '&limit=' + days).then((res) => {
         if (res.ok) {
           this._cacheChampions(res.rows || []);
           return res;
         }
         const cached = this._cachedChampions();
-        if (cached) return { ok: false, cached: true, offline: true, rows: cached };
+        if (cached) return { ok: false, cached: true, offline: true, rows: cached, days };
         return res;
       });
     },

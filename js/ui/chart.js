@@ -911,7 +911,9 @@
         seen[key] = 1;
         const visible = price >= g.lo && price <= g.hi;
         const y = visible ? g.mapY(price) : price > g.hi ? g.priceTop + 7 : g.priceBottom - 7;
-        groups[group].push({ price, text, color, visible, y });
+        // 强平线在可视范围外时，标签明确写“图外”，避免只剩一个小箭头被忽略
+        const label = !visible && group === 'liqs' ? 'LIQ 图外' : text;
+        groups[group].push({ price, text: label, color, visible, y });
       };
 
       for (let i = 0; i < positions.length; i++) {
@@ -928,17 +930,18 @@
         add('orders', o.price, label, c.order);
       }
 
-      // 强平线下方 6% 透明红区（在 K 线和线之间，带一点压迫感）
+      // 强平线危险侧 6% 透明红区：多单在强平线下方，空单在上方
       for (let i = 0; i < groups.liqs.length; i++) {
         const item = groups.liqs[i];
         if (!item.visible) continue;
         const y = g.mapY(item.price);
-        const zone = Math.min(g.priceH * 0.06, g.priceBottom - y);
+        const above = item.price > g.current;
+        const zone = Math.min(g.priceH * 0.06, above ? y - g.priceTop : g.priceBottom - y);
         if (zone > 0) {
           ctx.save();
           ctx.globalAlpha = 0.11;
           ctx.fillStyle = c.liq;
-          ctx.fillRect(g.plotX, y, g.plotW, zone);
+          ctx.fillRect(g.plotX, above ? y - zone : y, g.plotW, zone);
           ctx.restore();
         }
       }
@@ -982,6 +985,23 @@
         const item = groups.liqs[i];
         if (!item.visible) continue;
         this._priceLine(g, item, [5, 3], 0.98, 1.6);
+      }
+
+      // 强平价超出当前可视区间：贴着边缘画一条淡虚线，明确提示它存在
+      for (let i = 0; i < groups.liqs.length; i++) {
+        const item = groups.liqs[i];
+        if (item.visible) continue;
+        const y = Math.round(item.price > g.hi ? g.priceTop + 7 : g.priceBottom - 7) + 0.5;
+        ctx.save();
+        ctx.strokeStyle = item.color;
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 4]);
+        ctx.beginPath();
+        ctx.moveTo(g.plotX, y);
+        ctx.lineTo(g.plotR, y);
+        ctx.stroke();
+        ctx.restore();
       }
 
       // 越界价格：在边缘画小箭头

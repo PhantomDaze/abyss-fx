@@ -7,6 +7,8 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8099/';
 const EXE = process.env.CHROME || '/home/antom/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome';
 const OUT = '/tmp/abyss-shots';
 fs.mkdirSync(OUT, { recursive: true });
+// 北京时间日期键，与游戏内的每日挑战日界一致
+const cstDayKey = (offsetDays = 0) => new Date(Date.now() + 8 * 3600 * 1000 - offsetDays * 86400000).toISOString().slice(0, 10);
 
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 });
@@ -61,13 +63,43 @@ const canvasInfo = await page.evaluate(() => {
 log('canvas', canvasInfo);
 if (canvasInfo.nonzero < 1000) throw new Error('图表 canvas 基本为空');
 
-// 下单
+// 下单：止损/止盈按千分比填写
 await page.fill('#lotsInput', '0.10');
+await page.fill('#slInput', '5');
+await page.fill('#tpInput', '10');
 await page.click('#longBtn');
 await page.waitForTimeout(600);
 const posCount = await page.locator('#posCount').textContent();
 log('positions', posCount);
 if (Number(posCount) < 1) throw new Error('做多后没有持仓');
+const stopInfo = await page.evaluate(() => {
+  const p = FX.game.account.positions[0];
+  if (!p) return null;
+  return {
+    sl: (1 - p.sl / p.entry) * 1000,
+    tp: (p.tp / p.entry - 1) * 1000,
+  };
+});
+log('stop permille', stopInfo);
+if (!stopInfo || Math.abs(stopInfo.sl - 5) > 0.01 || Math.abs(stopInfo.tp - 10) > 0.01) {
+  throw new Error('止损/止盈千分比换算异常: ' + JSON.stringify(stopInfo));
+}
+// 多笔/跨货币对持仓：强平线必须按“只有当前货币对波动”算出来
+const multiLiq = await page.evaluate(() => {
+  const acc = new FX.Account({ balance: 10000, leverage: 100 });
+  acc.quotes = JSON.parse(JSON.stringify(FX.game.market.quotes));
+  acc.openMarket({ pairId: 'EURUSD', side: 1, lots: 2, now: 1 });
+  acc.openMarket({ pairId: 'GBPUSD', side: 1, lots: 2, now: 2 });
+  return {
+    eur: acc.liquidationInfo('EURUSD'),
+    gbp: acc.liquidationInfo('GBPUSD'),
+    aud: acc.liquidationInfo('AUDUSD'),
+  };
+});
+log('multi liq', multiLiq);
+if (!multiLiq.eur || !multiLiq.gbp || multiLiq.aud) {
+  throw new Error('多笔持仓强平线计算异常: ' + JSON.stringify(multiLiq));
+}
 await shot('02-position');
 
 // 平仓
@@ -166,7 +198,13 @@ await page.route('**/api/daily/**', async (route) => {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, best: 900, rank: 1 }) });
   }
   if (url.pathname.endsWith('/champions')) {
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ rows: [{ dayKey: '2026-10-30', name: '昨天冠军', score: 1000 }] }) });
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true, days: 30, toDay: cstDayKey(0), fromDay: cstDayKey(29),
+        rows: [{ dayKey: cstDayKey(1), name: '昨天冠军', score: 1000 }],
+      }),
+    });
   }
   return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
     dayKey: '2026-10-31', total: 2,
@@ -213,8 +251,14 @@ await page.waitForTimeout(400);
 await page.click('#lbTabChamp');
 await page.waitForTimeout(400);
 const champRows = await page.locator('#lbContent .lb-row').count();
-log('champion rows', champRows);
-if (champRows < 1) throw new Error('历史冠军没有渲染');
+const champText = await page.locator('#lbContent').textContent();
+const champMeta = await page.locator('#lbMeta').textContent();
+log('champion rows', champRows, champMeta);
+if (champRows !== 30) throw new Error('历史冠军没有补足最近 30 天: ' + champRows);
+if (!champText.includes('昨天冠军') || !champText.includes('暂无记录')) {
+  throw new Error('历史冠军日期窗口渲染异常');
+}
+if (!champMeta.includes('~') || !champMeta.includes('30 天')) throw new Error('历史冠军范围文案异常: ' + champMeta);
 await page.click('#modalClose');
 await page.waitForTimeout(200);
 // 离线降级

@@ -28,7 +28,7 @@
     },
     {
       icon: 'target', title: '先想亏多少，再想赚多少',
-      body: '下单前先设止损：你愿意为这笔交易亏多少钱？<br><br>带止损、单笔风险不超过权益 2%、不在新闻公布前满仓——这些纪律不会让你每次都赢，但会让你活得更久。<br><br>下单票（桌面在右侧，手机上在下方）可以设置止损、止盈与追踪止损。现在，去开你的第一笔交易吧。',
+      body: '下单前先设止损：你愿意为这笔交易亏多少钱？<br><br>带止损、单笔风险不超过权益 2%、不在新闻公布前满仓——这些纪律不会让你每次都赢，但会让你活得更久。<br><br>下单票（桌面在右侧，手机上在下方）用<strong>千分比（‰）</strong>设置止损、止盈与追踪止损：5‰ = 价格从开仓价反向走 0.5% 自动平仓（EUR/USD 约 55 点）。预览会换算成点数和金额。现在，去开你的第一笔交易吧。',
     },
   ];
 
@@ -397,17 +397,10 @@
       const orders = g.account.orders.filter((o) => o.pairId === g.selectedPair && o.status === 'working').map((o) => ({
         side: o.side, price: o.price, type: o.type,
       }));
-      const dist = g.account.liquidationDistance();
-      let liqPrice = null;
-      if (dist != null && q && positions.length) {
-        let net = 0;
-        for (const x of g.account.positions) {
-          if (x.pairId !== g.selectedPair) continue;
-          net += x.side * x.lots;
-        }
-        if (Math.abs(net) > 1e-9) liqPrice = q.mid - Math.sign(net) * dist * p.pip;
-        if (liqPrice != null && (liqPrice <= 0 || Math.abs(liqPrice - q.mid) > q.mid * 0.5)) liqPrice = null;
-      }
+      // 强平线按“只有当前货币对在动”计算，多笔持仓与不同货币对的仓位都能正确显示
+      const liqInfo = g.account.liquidationInfo(g.selectedPair);
+      const liqPrice = liqInfo ? liqInfo.price : null;
+      const liqDistance = liqInfo ? liqInfo.distancePips : null;
       let events = [];
       if (g.market.calendar && g.market.calendar.length) {
         const firstT = s.bars.length ? s.bars[0].t : 0;
@@ -433,7 +426,7 @@
         bid: q ? q.bid : null,
         ask: q ? q.ask : null,
         spreadPips: q ? q.spreadPips : null,
-        overlays: { positions, orders, liqPrice, liqDistancePips: dist },
+        overlays: { positions, orders, liqPrice, liqDistancePips: liqDistance },
         events,
         sessionLabel: g.market.sessionLabel ? g.market.sessionLabel() : '',
         emptyText: '正在读取行情…',
@@ -529,6 +522,8 @@
           const ratio = pos.margin > 0 ? -pnl / pos.margin : 0;
           const danger = ratio > 0.6;
           const liq = ratio > 0.9;
+          const slR = pos.sl != null ? FX.permille.signedReturn(pos.entry, pos.sl, pos.side) : null;
+          const tpR = pos.tp != null ? FX.permille.signedReturn(pos.entry, pos.tp, pos.side) : null;
           html += `<div class="position-card ${pos.side > 0 ? 'long' : 'short'}${danger ? ' danger' : ''}${liq ? ' liq' : ''}" data-pos="${pos.id}">
             <div class="pos-main">
               <div class="pos-left">
@@ -544,8 +539,8 @@
               <span>保证金 <b class="num">${U.money(pos.margin)}</b></span>
             </div>
             <div class="pos-meta">
-              <span>SL <b class="num">${pos.sl != null ? U.price(pos.sl, p.digits) : '—'}</b></span>
-              <span>TP <b class="num">${pos.tp != null ? U.price(pos.tp, p.digits) : '—'}</b></span>
+              <span>SL <b class="num">${pos.sl != null ? U.price(pos.sl, p.digits) : '—'}</b>${slR != null ? ` <span class="hint">${U.permille(slR)}</span>` : ''}</span>
+              <span>TP <b class="num">${pos.tp != null ? U.price(pos.tp, p.digits) : '—'}</b>${tpR != null ? ` <span class="hint">${U.permille(tpR)}</span>` : ''}</span>
               <span class="pos-risk-text">${danger ? '距强平危险' : '隔夜利息按日结算'}</span>
             </div>
             <div class="pos-actions">
@@ -586,6 +581,8 @@
       else {
         for (const o of working) {
           const p = FX.PAIR_MAP[o.pairId];
+          const slR = o.sl != null ? FX.permille.signedReturn(o.price, o.sl, o.side) : null;
+          const tpR = o.tp != null ? FX.permille.signedReturn(o.price, o.tp, o.side) : null;
           ohtml += `<div class="order-card" data-order="${o.id}">
             <div class="pos-main">
               <div class="pos-left">
@@ -595,7 +592,7 @@
               </div>
               <strong class="num">@ ${U.price(o.price, p.digits)}</strong>
             </div>
-            <div class="pos-sub"><span>止损 ${o.sl ? U.price(o.sl, p.digits) : '—'} · 止盈 ${o.tp ? U.price(o.tp, p.digits) : '—'}</span></div>
+            <div class="pos-sub"><span>止损 ${o.sl ? U.price(o.sl, p.digits) : '—'}${slR != null ? ` <span class="hint">${U.permille(slR)}</span>` : ''} · 止盈 ${o.tp ? U.price(o.tp, p.digits) : '—'}${tpR != null ? ` <span class="hint">${U.permille(tpR)}</span>` : ''}</span></div>
             <div class="pos-actions"><button class="pos-btn" data-act="cancel" type="button">撤单</button></div>
           </div>`;
         }
@@ -652,10 +649,17 @@
       $('shortBtn').querySelector('span').innerHTML = `${typeLabelS[this.orderType]} <em>卖出</em>`;
       $('triggerRow').classList.toggle('hidden', this.orderType === 'market');
       if (!q) return;
+      // 触发价默认放在现价，让止损/止盈预览与挂单锚点一致
+      if (this.orderType !== 'market' && !U.num($('triggerInput').value, 0)) {
+        $('triggerInput').value = p ? q.mid.toFixed(p.digits) : '';
+      }
       const lots = U.clamp(U.num($('lotsInput').value, 0.01), 0.01, acc.maxLots);
       const lev = acc.leverage;
-      const pv = acc.preview({ pairId: g.selectedPair, side: 1, lots, leverage: lev });
-      const pvS = acc.preview({ pairId: g.selectedPair, side: -1, lots, leverage: lev });
+      const slPermille = Math.max(0, U.num($('slInput').value, 0));
+      const tpPermille = Math.max(0, U.num($('tpInput').value, 0));
+      const anchor = this.orderType === 'market' ? null : U.num($('triggerInput').value, 0);
+      const pv = acc.preview({ pairId: g.selectedPair, side: 1, lots, leverage: lev, slPermille, tpPermille, anchor });
+      const pvS = acc.preview({ pairId: g.selectedPair, side: -1, lots, leverage: lev, slPermille, tpPermille, anchor });
       $('pvNotional').textContent = U.money(FX.notionalUSD(g.selectedPair, lots, g.market.quotes), 0);
       $('pvMargin').textContent = U.money(pv.margin);
       $('pvFee').textContent = U.money(pv.commission);
@@ -664,8 +668,12 @@
       $('pvLiq').textContent = okLiq(pv) && okLiq(pvS)
         ? `多 ${U.price(pv.liqPrice, p.digits)} / 空 ${U.price(pvS.liqPrice, p.digits)}`
         : '—';
-      const slPips = U.num($('slInput').value, 0);
-      $('pvSlLoss').textContent = slPips > 0 ? '-' + U.money(slPips * pv.pipVal) : '—';
+      $('pvSlLoss').textContent = pv.slLoss != null
+        ? `-${U.money(pv.slLoss)} · ${pv.slPips.toFixed(1)} 点`
+        : '—';
+      $('pvTpProfit').textContent = pv.tpProfit != null
+        ? `+${U.money(pv.tpProfit)} · ${pv.tpPips.toFixed(1)} 点`
+        : '—';
       $('pvSpread').textContent = U.money(pv.spreadCost);
       $('pvLiqDist').textContent = pv.liqPips != null && pv.liqPips > 0 && pvS.liqPips > 0
         ? `多 ${Math.round(pv.liqPips)} / 空 ${Math.round(pvS.liqPips)} 点`
@@ -673,12 +681,10 @@
       const note = $('orderNote');
       if (acc.halted) note.textContent = '账户已穿仓，交易停止。重置或切换模式后可继续。';
       else if (broke) note.textContent = '账户权益已归零，无法继续开仓。可以重置当前模式，或换一个模式。';
+      else if (slPermille > 0 && slPermille < pv.minPermille) note.textContent = `止损太近：当前货币对最小约 ${pv.minPermille.toFixed(2)}‰（${pv.minPips.toFixed(1)} 点）。`;
+      else if (tpPermille > 0 && tpPermille < pv.minPermille) note.textContent = `止盈太近：当前货币对最小约 ${pv.minPermille.toFixed(2)}‰（${pv.minPips.toFixed(1)} 点）。`;
       else if (acc.leverage >= 200) note.textContent = '高杠杆下，一次正常波动就可能触发追保或强平。杠杆不改变方向，只缩短反应时间。';
-      else note.textContent = '买入按卖价成交，卖出按买价成交；开仓即承担一个点差的浮亏。1 手 = 100,000 基础货币。';
-      // 触发价默认
-      if (this.orderType !== 'market' && !U.num($('triggerInput').value, 0)) {
-        $('triggerInput').value = p ? q.mid.toFixed(p.digits) : '';
-      }
+      else note.textContent = `止损/止盈按开仓价的千分比填写（5‰ = 0.5%），到达即自动平仓；1 手 = 100,000 基础货币。`;
     }
 
     collectOrder(side) {
@@ -687,9 +693,9 @@
         lots: U.num($('lotsInput').value, 0.01),
         orderType: this.orderType,
         triggerPrice: U.num($('triggerInput').value, 0),
-        slPips: U.num($('slInput').value, 0),
-        tpPips: U.num($('tpInput').value, 0),
-        trailPips: U.num($('trailInput').value, 0),
+        slPermille: Math.max(0, U.num($('slInput').value, 0)),
+        tpPermille: Math.max(0, U.num($('tpInput').value, 0)),
+        trailPermille: Math.max(0, U.num($('trailInput').value, 0)),
         side,
       };
     }
@@ -828,15 +834,20 @@
       $('riskSizeBtn').onclick = () => {
         const sl = U.num($('slInput').value, 0);
         if (sl <= 0) {
-          this.toast('先在止损里填一个点数（例如 30），才能按 2% 风险算手数。', 'warn');
+          this.toast('先在止损里填千分比（例如 5 = 0.5%），才能按 2% 风险算手数。', 'warn');
           return;
         }
-        const perLot = FX.pipValueUSD(g.selectedPair, 1, g.market.quotes);
+        const q = g.currentQuote();
+        const pair = FX.PAIR_MAP[g.selectedPair];
+        if (!q || !pair) return;
+        const base = q.mid;
+        const slPips = (base * sl / 1000) / pair.pip;
+        const lossPerLot = slPips * FX.pipValueUSD(g.selectedPair, 1, g.market.quotes);
         const eq = g.account.metrics().equity;
-        const lots = Math.floor(((eq * 0.02) / (sl * perLot)) * 100) / 100;
+        const lots = Math.floor(((eq * 0.02) / Math.max(1e-9, lossPerLot)) * 100) / 100;
         const safe = U.clamp(lots, 0.01, g.account.maxLots);
         $('lotsInput').value = safe.toFixed(2);
-        this.toast(`按 2% 权益风险，止损 ${sl} 点，约 ${safe.toFixed(2)} 手。`, 'info');
+        this.toast(`按 2% 权益风险，止损 ${sl}‰（约 ${slPips.toFixed(1)} 点），约 ${safe.toFixed(2)} 手。`, 'info');
         this.renderTicketPreview();
       };
       $('triggerUseBidAsk').onclick = () => {
@@ -1559,15 +1570,43 @@
     _renderLbChampions(res) {
       if (!this._lbAlive()) return;
       const rows = (res && res.rows) || [];
-      $('lbMeta').textContent = `近 30 天每日冠军${res && res.cached ? ' · 离线缓存' : ''}`;
+      const days = Math.min(90, Math.max(1, Math.floor(Number(res && res.days) || 30)));
       if (!res || (!res.ok && !res.cached)) {
         $('lbContent').innerHTML = `<div class="empty-state"><strong>历史冠军暂不可用</strong><span>${this._lbErrorText(res)}。</span></div>`;
         return;
       }
-      $('lbContent').innerHTML = rows.length
-        ? '<div class="ldr-head"><span>日期</span><span>冠军 / 得分</span></div>' + rows.map((r) =>
-          `<div class="ldr-row lb-row"><span class="ldr-rank">${U.esc(String(r.dayKey || '').slice(5))}</span><span class="ldr-name">${U.esc(r.name)}</span><span class="ldr-score num">${r.score}</span></div>`).join('')
-        : '<div class="empty-state"><strong>还没有历史冠军。</strong><span>完成今天的挑战后，冠军会记录在这里。</span></div>';
+      // 接口只返回“有成绩”的日期；这里补足最近 N 个自然日，避免看起来像“本月冠军”
+      const byDay = new Map();
+      for (const r of rows) {
+        const rawKey = String((r && (r.dayKey || r.day_key)) || '');
+        const key = /^\d{4}-\d{2}-\d{2}/.test(rawKey) ? rawKey.slice(0, 10) : rawKey;
+        if (key && !byDay.has(key)) byDay.set(key, Object.assign({}, r, { dayKey: key }));
+      }
+      const now = Date.now();
+      const list = [];
+      for (let i = 0; i < days; i++) {
+        const dayKey = U.dateKeyCST(now - i * 86400000);
+        list.push(byDay.get(dayKey) || { dayKey, empty: true });
+      }
+      const filled = list.filter((r) => !r.empty).length;
+      const fromDay = list[list.length - 1].dayKey;
+      const toDay = list[0].dayKey;
+      $('lbMeta').textContent = `${fromDay} ~ ${toDay} · 近 ${days} 天每日冠军 · ${filled} 天有记录${res && res.cached ? ' · 离线缓存' : ''}`;
+      if (!filled) {
+        $('lbContent').innerHTML = `<div class="empty-state"><strong>近 ${days} 天还没有历史冠军。</strong><span>完成今天的挑战后，冠军会记录在这里。</span></div>`;
+        return;
+      }
+      $('lbContent').innerHTML =
+        '<div class="ldr-head"><span>日期</span><span>冠军 / 得分</span></div>' +
+        list.map((r) => {
+          const empty = !!r.empty;
+          const name = empty ? '暂无记录' : (r.name || '—');
+          const score = empty || r.score == null ? '—' : String(r.score);
+          return `<div class="ldr-row lb-row${empty ? ' empty' : ''}">` +
+            `<span class="ldr-rank">${U.esc(String(r.dayKey || '').slice(5))}</span>` +
+            `<span class="ldr-name">${U.esc(name)}</span>` +
+            `<span class="ldr-score num">${U.esc(score)}</span></div>`;
+        }).join('');
     }
 
     _submitPendingLb() {
@@ -2008,27 +2047,65 @@
       const pos = g.account.positions.find((p) => p.id === id);
       if (!pos) return;
       const p = FX.PAIR_MAP[pos.pairId];
+      const q = g.market.quotes[pos.pairId];
+      if (!p || !q) return;
+      const slR = pos.sl != null ? FX.permille.signedReturn(pos.entry, pos.sl, pos.side) : null;
+      const tpR = pos.tp != null ? FX.permille.signedReturn(pos.entry, pos.tp, pos.side) : null;
+      const fmt = (v) => (v == null ? '' : v.toFixed(2));
       this.openModal({
         title: '修改止损 / 止盈', icon: 'target',
-        body: `<p class="modal-sub">${p.display} · ${pos.side > 0 ? '多' : '空'} ${pos.lots.toFixed(2)} 手 · 开仓 ${U.price(pos.entry, p.digits)}</p>
+        body: `<p class="modal-sub">${p.display} · ${pos.side > 0 ? '多' : '空'} ${pos.lots.toFixed(2)} 手 · 开仓 ${U.price(pos.entry, p.digits)}<br>按开仓价的千分比填写；负数 = 亏损，正数 = 锁定盈利。留空 = 取消。</p>
           <div class="form-grid two">
-            <label class="form-field"><span>止损价</span><input id="modSl" type="number" step="${p.pip}" value="${pos.sl != null ? pos.sl.toFixed(p.digits) : ''}" placeholder="留空 = 取消"></label>
-            <label class="form-field"><span>止盈价</span><input id="modTp" type="number" step="${p.pip}" value="${pos.tp != null ? pos.tp.toFixed(p.digits) : ''}" placeholder="留空 = 取消"></label>
+            <label class="form-field"><span>止损 <span class="hint">‰</span></span><input id="modSl" type="number" step="0.01" value="${fmt(slR)}" placeholder="留空 = 取消"><span class="hint" id="modSlHint">—</span></label>
+            <label class="form-field"><span>止盈 <span class="hint">‰</span></span><input id="modTp" type="number" step="0.01" value="${fmt(tpR)}" placeholder="留空 = 取消"><span class="hint" id="modTpHint">—</span></label>
           </div>`,
         actions: [
           { label: '取消', cls: 'outline-button', close: true },
           {
             label: '保存', cls: 'primary-button', close: true,
             onClick: () => {
-              const sl = U.num($('modSl').value, 0) || null;
-              const tp = U.num($('modTp').value, 0) || null;
-              if (sl && pos.side > 0 && sl >= g.market.quotes[pos.pairId].bid) { this.toast('多单止损需低于当前买价。', 'bad'); return false; }
-              if (sl && pos.side < 0 && sl <= g.market.quotes[pos.pairId].ask) { this.toast('空单止损需高于当前卖价。', 'bad'); return false; }
+              const read = (elId) => {
+                const raw = String($(elId).value || '').trim();
+                if (!raw) return null;
+                const n = U.num(raw, NaN);
+                return Number.isFinite(n) ? n : NaN;
+              };
+              const nextSlR = read('modSl');
+              const nextTpR = read('modTp');
+              if (Number.isNaN(nextSlR) || Number.isNaN(nextTpR)) { this.toast('请输入有效的千分比。', 'bad'); return false; }
+              if (nextSlR === 0) { this.toast('止损不能等于开仓价。', 'bad'); return false; }
+              if (nextTpR === 0) { this.toast('止盈不能等于开仓价。', 'bad'); return false; }
+              const sl = nextSlR == null ? null : FX.permille.priceAtReturn(pos.entry, pos.side, nextSlR);
+              const tp = nextTpR == null ? null : FX.permille.priceAtReturn(pos.entry, pos.side, nextTpR);
+              if (sl != null) {
+                if (sl <= 0) { this.toast('止损价无效。', 'bad'); return false; }
+                if (pos.side > 0 && sl >= q.bid) { this.toast('多单止损需低于当前买价。', 'bad'); return false; }
+                if (pos.side < 0 && sl <= q.ask) { this.toast('空单止损需高于当前卖价。', 'bad'); return false; }
+              }
+              if (tp != null) {
+                if (tp <= 0) { this.toast('止盈价无效。', 'bad'); return false; }
+                if (pos.side > 0 && tp <= q.bid) { this.toast('多单止盈需高于当前买价。', 'bad'); return false; }
+                if (pos.side < 0 && tp >= q.ask) { this.toast('空单止盈需低于当前卖价。', 'bad'); return false; }
+              }
               g.modifyPosition(pos.id, { sl, tp });
             },
           },
         ],
       });
+      const syncHint = (elId, hintId) => {
+        const raw = String($(elId).value || '').trim();
+        const hint = $(hintId);
+        if (!hint) return;
+        if (!raw) { hint.textContent = '留空 = 取消'; return; }
+        const r = U.num(raw, NaN);
+        if (!Number.isFinite(r)) { hint.textContent = '请输入数字'; return; }
+        const price = FX.permille.priceAtReturn(pos.entry, pos.side, r);
+        hint.textContent = `≈ ${U.price(price, p.digits)}（相对开仓 ${U.permille(r, 2)}）`;
+      };
+      $('modSl').oninput = () => syncHint('modSl', 'modSlHint');
+      $('modTp').oninput = () => syncHint('modTp', 'modTpHint');
+      syncHint('modSl', 'modSlHint');
+      syncHint('modTp', 'modTpHint');
     }
 
     // ---------- 分享 ----------
